@@ -1,0 +1,29 @@
+{
+  "os": "Windows-10-10.0.26300-SP0",
+  "machine": "AMD64",
+  "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+  "physical_cores": 8,
+  "logical_processors": 16,
+  "ram_bytes": 16474501120,
+  "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "python_implementation": "CPython",
+  "psutil": "7.2.2",
+  "gcc_version": "gcc (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r1) 16.2.0",
+  "c_flags": [
+    "-O2",
+    "-std=c11",
+    "-Wall",
+    "-Wextra"
+  ],
+  "threads": "all kernels single-threaded; no numerical library inside the timed code",
+  "power_plugged": true,
+  "numpy": "2.2.5",
+  "scipy": "1.17.1",
+  "matplotlib": "3.10.1",
+  "cpu_name": "AMD Ryzen 7 7730U with Radeon Graphics",
+  "cpu_max_clock_mhz": "2000",
+  "l2_cache_kb": "4096",
+  "l3_cache_kb": "16384",
+  "computer_model": "HP Laptop 15-fc0xxx",
+  "power_plan": "GUID de plan de energ\u00a1a: 381b4222-f694-41f0-9685-ff5bb260df2e  (Equilibrado)"
+}

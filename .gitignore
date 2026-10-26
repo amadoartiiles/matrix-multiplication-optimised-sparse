@@ -1,0 +1,13 @@
+build/
+data/*.bin
+data/sparse/
+outputs/
+__pycache__/
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+bench_log.txt
+BD_Individual_Assignments_2026_2027.pdf
+pilot/
+report/*.listing

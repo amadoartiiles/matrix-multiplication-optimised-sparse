@@ -1,0 +1,26 @@
+== c/dense.c (-O2 -std=c11 -Wall -Wextra) ==
+c/dense.c:54:31: optimized: loop vectorized using 16 byte vectors and unroll factor 2
+c/dense.c:109:44: optimized: loop vectorized using 16 byte vectors and unroll factor 2
+c/dense.c:162:27: optimized: loop vectorized using 16 byte vectors and unroll factor 4
+c/dense.c:149:9: optimized: basic block part vectorized using 8 byte vectors
+c/dense.c:153:16: optimized: basic block part vectorized using 16 byte vectors
+c/dense.c:154:16: optimized: basic block part vectorized using 16 byte vectors
+c/dense.c:155:16: optimized: basic block part vectorized using 16 byte vectors
+c/dense.c:180:16: optimized: basic block part vectorized using 16 byte vectors
+c/dense.c:180:38: optimized: basic block part vectorized using 16 byte vectors
+c/dense.c:180:60: optimized: basic block part vectorized using 16 byte vectors
+c/dense.c:195:9: optimized: basic block part vectorized using 16 byte vectors
+
+== c/sparse.c (-O2 -std=c11 -Wall -Wextra) ==
+c/sparse.c:148:23: optimized: loop vectorized using 16 byte vectors and unroll factor 4
+c/sparse.c:140:12: optimized: basic block part vectorized using 16 byte vectors
+c/sparse.c:141:12: optimized: basic block part vectorized using 16 byte vectors
+c/sparse.c:142:12: optimized: basic block part vectorized using 16 byte vectors
+c/sparse.c:161:12: optimized: basic block part vectorized using 16 byte vectors
+c/sparse.c:161:34: optimized: basic block part vectorized using 16 byte vectors
+c/sparse.c:161:56: optimized: basic block part vectorized using 16 byte vectors
+c/common.h:101:27: optimized: basic block part vectorized using 8 byte vectors
+c/common.h:96:19: optimized: basic block part vectorized using 16 byte vectors
+c/common.h:102:27: optimized: basic block part vectorized using 16 byte vectors
+c/sparse.c:179:9: optimized: basic block part vectorized using 8 byte vectors
+c/sparse.c:180:12: optimized: basic block part vectorized using 16 byte vectors

@@ -1,0 +1,862 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[varqu,scaled=0.95]{zi4}
+\usepackage[margin=2.3cm,headheight=14pt]{geometry}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{needspace}
+\usepackage{xcolor}
+\usepackage[parfill]{parskip}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[font=small,labelfont={bf,color=accent},skip=6pt]{caption}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage[colorlinks=true,linkcolor=accent,citecolor=accent,urlcolor=accent]{hyperref}
+
+% ---------------------------------------------------------------------
+% Colours (methods match the figures)
+\definecolor{accent}{HTML}{1F3A5F}
+\definecolor{accentlight}{HTML}{EEF3F9}
+\definecolor{rulegray}{HTML}{C9D3DF}
+\definecolor{codebg}{HTML}{F8F9FB}
+\definecolor{codekw}{HTML}{8A3FA0}
+\definecolor{codecomment}{HTML}{6B7785}
+\definecolor{mijk}{HTML}{2A78D6}
+\definecolor{mikj}{HTML}{EB6834}
+\definecolor{mtransposed}{HTML}{1BAF7A}
+\definecolor{mblocked}{HTML}{4A3AA7}
+\definecolor{mcsr}{HTML}{D4357A}
+
+% ---------------------------------------------------------------------
+% Headings
+\titleformat{\section}{\Needspace{8\baselineskip}\Large\bfseries\color{accent}}{\thesection}{0.7em}{}
+  [\vspace{-4pt}{\color{rulegray}\titlerule[0.8pt]}]
+\titlespacing*{\section}{0pt}{18pt}{10pt}
+\titleformat{\subsection}{\Needspace{7\baselineskip}\large\bfseries\color{accent}}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{14pt}{6pt}
+
+% A concept heading on its own line, with space above, inside a section
+\newcommand{\concept}[1]{\par\addvspace{8pt}\Needspace{5\baselineskip}%
+  \noindent{\color{accent}\bfseries\boldmath #1}\par\nopagebreak\vspace{2pt}}
+
+% Page style
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{codecomment}Assignment 2 \textperiodcentered{} Optimised dense and sparse matrix multiplication}
+\fancyhead[R]{\small\color{codecomment}\AuthorName}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{rulegray}\hrule height\headrulewidth}}
+
+% Lists
+\setlist{itemsep=3pt,parsep=0pt,topsep=4pt}
+
+% ---------------------------------------------------------------------
+% Boxes
+\newtcolorbox{infobox}[1][]{enhanced,breakable,colback=accentlight,colframe=accent,
+  boxrule=0pt,leftrule=3pt,arc=0pt,left=10pt,right=10pt,top=6pt,bottom=6pt,
+  before upper={\setlength{\parskip}{5pt}},#1}
+\newtcolorbox{titledbox}[1]{enhanced,colback=accentlight,colframe=accent,
+  boxrule=0.6pt,arc=2pt,left=10pt,right=10pt,top=6pt,bottom=6pt,
+  title={\bfseries #1},fonttitle=\normalsize,coltitle=white,
+  before upper={\setlength{\parskip}{5pt}}}
+
+% Code listings
+\lstdefinestyle{kernel}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecomment}\itshape,
+  stringstyle=\color{codecomment},
+  numbers=left, numberstyle=\scriptsize\color{codecomment}, numbersep=8pt,
+  showstringspaces=false, columns=fullflexible, keepspaces=true,
+  aboveskip=0pt, belowskip=0pt, xleftmargin=14pt
+}
+\newtcblisting{codebox}[3]{enhanced,listing only,
+  listing options={style=kernel,language=#1},
+  colback=codebg,colframe=#3,boxrule=0.6pt,leftrule=3pt,arc=2pt,
+  left=4pt,right=6pt,top=4pt,bottom=4pt,
+  title={\ttfamily\small #2},coltitle=black,colbacktitle=#3!12,
+  fonttitle=\bfseries,toptitle=1pt,bottomtitle=1pt}
+
+% Tables
+\renewcommand{\arraystretch}{1.12}
+
+% ---------------------------------------------------------------------
+\input{../results/summary/tables.tex}
+
+\newcommand{\AuthorName}{Amado Artiles Rodríguez}
+\newcommand{\RepoURL}{https://github.com/amadoartiiles/matrix-multiplication-optimised-sparse}
+\newcommand{\AOneURL}{https://github.com/amadoartiiles/matrix-multiplication-studies}
+
+\hypersetup{pdftitle={Assignment 2: Optimised Dense and Sparse Matrix Multiplication},
+  pdfauthor={\AuthorName}}
+
+\begin{document}
+
+% =====================================================================
+% Title block
+\thispagestyle{empty}
+\begin{tcolorbox}[enhanced,colback=accent,colframe=accent,coltext=white,arc=3pt,
+  left=14pt,right=14pt,top=12pt,bottom=12pt]
+{\small BIG DATA \quad\textperiodcentered\quad Grado en Ciencia e Ingeniería de Datos \quad\textperiodcentered\quad ULPGC \quad\textperiodcentered\quad 2026--2027}
+
+\vspace{8pt}
+{\LARGE\bfseries Assignment 2: Optimised Dense Matrix\\[2pt] Multiplication and Sparse Matrices}
+
+\vspace{8pt}
+{\large How much do loop order, layout and blocking speed up dense multiplication, and when does a
+sparse representation pay off?}
+\end{tcolorbox}
+
+\vspace{4pt}
+\noindent{\large\bfseries \AuthorName}\hfill{\color{codecomment}October 2026}\\
+{\small Repository: \url{\RepoURL}}
+
+\vspace{6pt}
+\begin{infobox}
+{\color{accent}\bfseries Abstract}\par\vspace{3pt}
+Taking the validated C i-j-k kernel of Assignment~1 as the baseline, this study measures three
+sequential dense optimisations (i-k-j loop reordering, a transposed copy of $B$ and $64\times64$
+cache blocking) and an own CSR sparse multiplication (Gustavson's row-wise algorithm) on one laptop
+(AMD Ryzen~7 7730U, Windows~11, GCC~16 \texttt{-O2}), with five measured repetitions per
+configuration and fixed budgets of 300\,s and 4\,GB. All dense kernels returned bitwise-identical
+results, and all 97 validated configurations were within a rigorous error bound. Blocking was the fastest dense
+method, kept a constant cost of about 0.2\,ns per multiply-add up to $n=4096$ and was
+$27.8\times$ faster than the baseline at $n=2048$ and $31.8\times$ at $n=3072$; the baseline
+exceeded the time budget at $n=4096$. Loop reordering matched blocking until $B$ outgrew the
+16\,MB L3 cache and then became twice as slow; SIMD vectorisation contributed a factor of
+1.25--1.7, the access pattern the rest. On uniformly random inputs, CSR beat the blocked kernel
+by more than two orders of magnitude at densities up to 1\,\%, by $1.6$--$2\times$ at 25\,\% and
+lost at 50\,\%; conversion costs dominated only below about 1\,\%. CSR reached $n=32768$ at
+0.1\,\% density in 0.3\,s, where dense storage alone would need 26\,GB. The advantage depended on
+the output fill-in and the nonzero structure, not on input density alone: banded inputs with the
+same density and the same number of scalar products ran 2--5.6$\times$ faster than uniform ones.
+The conclusions apply to these implementations, inputs and machine only.
+
+\vspace{4pt}
+{\small\textbf{Keywords:} matrix multiplication, loop reordering, cache blocking, vectorisation,
+sparse matrices, CSR, SpGEMM, benchmarking.}
+\end{infobox}
+
+% =====================================================================
+\section{Introduction and objective}
+
+Assignment~1 showed that the textbook i-j-k triple loop in C is limited by memory access, not by
+arithmetic: its cost per multiply-add rose from 0.6\,ns to almost 6\,ns as the matrices left the
+caches, and a 16-byte row padding alone changed its runtime by up to 6.9$\times$. This study takes
+that validated C kernel as the baseline and asks two separate questions.
+
+\begin{titledbox}{Research questions}
+\textbf{Part A.} How do three sequential optimisations of dense multiplication (loop reordering,
+a transposed layout of $B$ and cache blocking) change runtime and memory relative to the
+Assignment~1 baseline as the matrix size $n$ grows, on one fixed machine?
+
+\textbf{Part B.} For matched logical inputs, at which tested densities and nonzero structures does
+a CSR sparse multiplication run faster or use less memory than a dense method, and which costs
+(indexing, conversion, output fill-in) reduce its advantage?
+\end{titledbox}
+
+\concept{Hypotheses (stated before measuring)}
+\begin{enumerate}[label=\textbf{H\arabic*}, leftmargin=2.2em]
+  \item The optimised dense kernels perform the same $n^3$ multiply-adds but read $B$ with unit
+        stride, so their cost per multiply-add stays nearly constant with $n$; their advantage over
+        the baseline grows with $n$ and is largest where the baseline suffers conflict misses
+        ($n=512, 1024, 2048$).
+  \item Cache blocking is the fastest dense method at large $n$, because it also keeps a tile of
+        $B$ and of $C$ in cache; loop reordering alone is close to it while a row of $B$ fits in L2.
+  \item The CSR product does work proportional to the number of scalar products,
+        $\approx n^3d^2$ for uniformly random inputs of density $d$, so it beats dense
+        multiplication by a large factor at low density, and the advantage disappears at a
+        density of the order of ten percent because each sparse product is several times more
+        expensive than a dense one.
+  \item Input density alone does not determine the result: the output can be much denser than the
+        inputs, and inputs with the same density but different structure produce different
+        output sizes and runtimes.
+\end{enumerate}
+
+% =====================================================================
+\section{Background}
+
+\concept{Loop order and locality}
+All loop orders of $C_{ij}=\sum_k A_{ik}B_{kj}$ perform the same $n^3$ multiply-adds
+\cite{golub}. In the i-j-k order the innermost loop walks a \emph{column} of the row-major matrix
+$B$, touching a new cache line on every iteration and, for power-of-two $n$, mapping all of them
+to a few cache sets (Assignment~1). In the i-k-j order the innermost loop is
+$C_{i,:} \mathrel{+}= A_{ik}B_{k,:}$: both $B$ and $C$ are read with unit stride, and the
+iterations are independent, so the compiler can vectorise them \cite{drepper}. Transposing $B$
+first is the alternative: the dot product $\sum_k A_{ik}B^T_{jk}$ reads two rows, at the price of
+an $n^2$ copy and extra memory.
+
+\concept{Cache blocking}
+Blocking (tiling) partitions the three loops into $b\times b$ tiles so that the working set of the
+inner loops (a tile of $B$ and parts of the rows of $C$) stays in cache while it is reused; it
+reduces memory traffic from $O(n^3)$ to $O(n^3/b)$ words \cite{lam,goto}. The best $b$ depends on
+the cache sizes and must be chosen empirically. Algorithmic alternatives such as Strassen's
+$O(n^{2.81})$ method \cite{strassen} change the arithmetic and its rounding errors and were not
+used here, so that all dense methods remain directly comparable.
+
+\concept{Vectorisation}
+Since GCC~12, \texttt{-O2} enables loop vectorisation with a ``very cheap'' cost model
+\cite{gcc12}. Without \texttt{-march}, x86-64 code uses 16-byte SSE2 vectors (two doubles). A loop
+of independent updates such as $C_{ij}\mathrel{+}=aB_{kj}$ can be vectorised without changing any
+result; a reduction such as $s\mathrel{+}=A_{ik}B_{kj}$ cannot, because reordering the sum would
+change rounding, which IEEE semantics without \texttt{-ffast-math} forbid.
+
+\concept{Sparse storage and multiplication}
+Compressed Sparse Row (CSR) stores a matrix with $z$ nonzeros as a row-pointer array of $n+1$
+entries, and column indices and values of length $z$ \cite{saad}. Gustavson's row-wise algorithm
+\cite{gustavson,smmp} computes row $i$ of $C$ as a combination of the rows of $B$ selected by the
+nonzeros of row $i$ of $A$, using a dense accumulator and a marker array of length $n$. Its work is
+the number of scalar products $W=\sum_k \mathrm{nnz}(A_{:,k})\,\mathrm{nnz}(B_{k,:})$ plus $O(n)$
+per row, independent of $n^3$ \cite{davis}. For independent uniformly random inputs of density
+$d$, $\mathbb{E}[W]=n^3d^2$ and an entry of $C$ is nonzero with probability $1-(1-d^2)^n$, so the
+output fills in quickly: for $n=2048$ it is already about 50\,\% dense at $d=1.8\,\%$.
+
+\concept{Error bound}
+As in Assignment~1, a computed dot product of length $n$ satisfies $|\hat C-C|\le\gamma_n|A||B|$
+element-wise, with $\gamma_n=nu/(1-nu)$ and $u=2^{-53}$ \cite[Sec.~3.5]{higham}.
+
+% =====================================================================
+\section{Methodology}
+
+\subsection{Implementations}
+All methods are written in C11 by the author and compiled with the same flags; none calls a
+library. Figure~\ref{lst:kernels} shows the dense kernels and Figure~\ref{lst:csr} the CSR kernel.
+
+\begin{figure}[H]
+\begin{codebox}{C}{ijk (baseline) \textperiodcentered{} c/dense.c, copied unchanged from Assignment 1}{mijk}
+for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++) {
+        double s = 0.0;
+        for (int k = 0; k < n; k++) s += A[(size_t)i*n + k] * B[(size_t)k*n + j];
+        C[(size_t)i*n + j] = s;
+    }
+\end{codebox}
+\vspace{3pt}
+\begin{codebox}{C}{ikj (loop reordering)}{mikj}
+for (int i = 0; i < n; i++) {
+    double *Ci = C + (size_t)i*n;
+    for (int k = 0; k < n; k++) {
+        const double a = A[(size_t)i*n + k];
+        const double *Bk = B + (size_t)k*n;
+        for (int j = 0; j < n; j++) Ci[j] += a * Bk[j];      /* vectorised by GCC */
+    }
+}
+\end{codebox}
+\vspace{3pt}
+\begin{codebox}{C}{transposed (data-layout change; the copy is inside the timed region)}{mtransposed}
+/* Bt = B^T, copied in 32x32 tiles */
+for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++) {
+        double s = 0.0;
+        for (int k = 0; k < n; k++) s += Ai[k] * Bt[(size_t)j*n + k];
+        C[(size_t)i*n + j] = s;
+    }
+\end{codebox}
+\vspace{3pt}
+\begin{codebox}{C}{blocked (cache blocking of the ikj nest, tile b = 64)}{mblocked}
+for (int ii = 0; ii < n; ii += b)
+  for (int kk = 0; kk < n; kk += b)
+    for (int jj = 0; jj < n; jj += b)
+      for (int i = ii; i < min(ii+b, n); i++)
+        for (int k = kk; k < min(kk+b, n); k++) {
+          const double a = A[(size_t)i*n + k];
+          for (int j = jj; j < min(jj+b, n); j++)
+            C[(size_t)i*n + j] += a * B[(size_t)k*n + j];
+        }
+\end{codebox}
+\caption{The four dense kernels (abridged from \texttt{c/dense.c}). Each allocates and
+zero-initialises $C$ with \texttt{calloc} inside the timed region.}
+\label{lst:kernels}
+\end{figure}
+
+\concept{Identical arithmetic}
+In every dense kernel each $C_{ij}$ starts at $0$ and receives the products $A_{ik}B_{kj}$ in
+increasing $k$ order: in the blocked kernel the $k$ tiles are visited in increasing order for every
+$(i,j)$. With no \texttt{-ffast-math} and no FMA instructions (no \texttt{-march}), the four
+kernels must therefore return \emph{bitwise identical} results, which the self test and the
+validation check. The optimisations change only the order in which the $n^2$ independent sums
+progress, not the sums themselves.
+
+\begin{figure}[H]
+\begin{codebox}{C}{CSR x CSR -> CSR, numeric pass \textperiodcentered{} c/sparse.c}{mcsr}
+for (int i = 0; i < n; i++) {                       /* pass 1 counted row_ptr already */
+    int32_t *ci = C->col + row_ptr[i];  int64_t len = 0;
+    for (int64_t p = A->row_ptr[i]; p < A->row_ptr[i+1]; p++) {
+        const int k = A->col[p];  const double a = A->val[p];
+        for (int64_t q = B->row_ptr[k]; q < B->row_ptr[k+1]; q++) {
+            const int j = B->col[q];
+            if (mark[j] != i) { mark[j] = i; ci[len++] = j; acc[j] = a * B->val[q]; }
+            else acc[j] += a * B->val[q];
+        }
+    }
+    for (int64_t t = 0; t < len; t++) C->val[row_ptr[i] + t] = acc[ci[t]];
+}
+\end{codebox}
+\caption{Numeric pass of the row-wise Gustavson product. A preceding symbolic pass with the same
+loops counts the distinct columns of each row of $C$, so $C$ is allocated exactly once.}
+\label{lst:csr}
+\end{figure}
+
+\concept{Sparse implementation}
+\texttt{c/sparse.c} (own code, no sparse library) stores matrices in CSR with 64-bit row pointers,
+32-bit column indices and binary64 values, i.e.\ $8(n+1)+12z$ bytes for $z$ nonzeros. The product
+is computed in two passes (symbolic, then numeric) with a dense accumulator \texttt{acc} and a
+marker array, both of length $n$. Column indices inside a row of $C$ are left in first-touch order
+(not sorted). Because each $C_{ij}$ again accumulates its products in increasing $k$ order and the
+skipped dense terms are exact zeros, the CSR result has the same values as the dense kernels.
+SciPy \cite{scipy} and NumPy are used only as correctness references.
+
+\subsection{Inputs}
+\concept{Part A}
+The dense inputs are those of Assignment~1: NumPy PCG64 seeded with \texttt{[20261012, n]}, values
+uniform in $[-1,1)$, binary64 row-major files. The regenerated files are byte-identical to the
+Assignment~1 files for all 16 shared sizes (SHA-256 in \texttt{data/manifest.json}); $n=3072$ and
+$4096$ were added with the same generator.
+
+\concept{Part B}
+Sparse inputs are written as CSR files read by both programs, so dense and sparse methods see the
+same logical matrices; the dense program expands them to dense arrays before timing. Each pair
+$A,B$ has \emph{exactly} $z=\mathrm{round}(dn^2)$ nonzeros, with values uniform in $[-1,1)$
+(exact zeros redrawn), generated with PCG64 seeded with
+\texttt{[20261026, n, round(1000\,d\%), structure, matrix]}. Density $d$ is the percentage of
+nonzero entries, and sparsity is $100-d$. Two nonzero distributions were used:
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{uniform}: $z$ distinct positions drawn uniformly at random from the $n^2$
+        positions (rows therefore hold a binomially varying number of nonzeros);
+  \item \textbf{banded}: the narrowest band $|i-j|\le w$ that can hold $z$ entries; the diagonals
+        $|i-j|<w$ are full and the remaining entries are random positions of the two outer
+        diagonals.
+\end{itemize}
+
+\subsection{Environment and fixed settings}
+Table~\ref{tab:env} lists the environment; it is the machine of Assignment~1, and
+\texttt{results/environment.json} records the details.
+
+\begin{table}[H]
+\centering
+\caption{Test environment and fixed settings.}
+\label{tab:env}
+\begin{tabularx}{\linewidth}{@{}>{\bfseries\color{accent}}l X@{}}
+\toprule
+CPU & AMD Ryzen 7 7730U (Zen 3), 8 physical cores / 16 logical processors; 32\,KB L1d and 512\,KB L2 per core, 16\,MB L3 \\
+Memory, OS & 16 GB RAM; Windows 11 Home 10.0.26300; HP Laptop 15-fc0xxx; on AC power, ``Balanced'' power plan \\
+Compiler & GCC 16.2.0 (MinGW-w64 UCRT); \texttt{-O2 -std=c11 -Wall -Wextra} (no \texttt{-march}, no fast-math); vectorised loops listed in \texttt{results/vectorization\_report.txt} \\
+Threads & every kernel is sequential (one thread); no numerical library inside the timed code \\
+Scripts & CPython 3.11.9, NumPy 2.2.5, SciPy 1.17.1, Matplotlib 3.10.1, psutil 7.2.2 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Measurement protocol}
+
+\concept{Timing boundaries}
+\emph{Dense:} allocation and zero-initialisation of $C$ plus the loops; for \texttt{transposed} also
+the allocation and filling of $B^T$. \emph{CSR multiply:} both passes, the work arrays and the
+allocation of the output CSR arrays. \emph{Conversions} (Part~B, $n\le4096$): dense$\to$CSR of $A$
+and $B$ together, and CSR$\to$dense of $C$, each timed in its own loop and reported separately;
+a ``CSR including conversions'' figure is their explicit sum. Reading files, expanding CSR inputs
+for the dense methods, checksums and dumps are outside every timed region. Timer:
+\texttt{QueryPerformanceCounter}.
+
+\concept{Repetitions}
+Each configuration runs in a fresh process: one warm-up run (cache and page-fault effects),
+excluded from the statistics, then five measured repetitions. Samples shorter than 0.1\,s are
+batched and divided by the batch size. Every result is consumed through a \texttt{volatile} sink
+and a checksum. We report the median and the interquartile range (IQR); all samples, including
+warm-ups, are in \texttt{results/raw/measurements.csv}. Configurations run in order of increasing
+$n$ with a 2\,s pause between processes.
+
+\concept{Memory}
+As in Assignment~1, the driver records the Windows peak working set of the process
+(\texttt{Peak\-Working\-Set\-Size}, read with psutil \cite{psutil}), sampled every 20\,ms. We compare it with
+analytical storage models: $24n^2$ bytes for the dense $A$, $B$, $C$ ($32n^2$ for
+\texttt{transposed}) and $8(n+1)+12z$ bytes per CSR matrix.
+
+\concept{Budgets (declared before the large runs)}
+300\,s per multiplication and 4\,GB peak working set per process. A configuration that exceeds a
+budget is stopped and recorded with its limit, and larger sizes of the same method and input are
+not attempted. A dense configuration whose storage model ($24n^2$ bytes) already exceeds the
+memory budget is recorded as over the limit without being launched.
+
+\concept{Design of the experiments}
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Pre-study:} tile size $b\in\{16,32,64,128,256\}$ of the blocked kernel at
+        $n=512,1024,2048$, before the main runs.
+  \item \textbf{A, dense:} the four kernels for $n=64,\dots,4096$ (10 sizes).
+  \item \textbf{B, matched comparison:} uniform inputs with $n=1024,2048$ and
+        $d=0.1$, 0.5, 1, 2, 5, 10, 25, 50 and 100\,\%; CSR versus the fastest dense kernel (blocked) at every
+        point, and versus the baseline at $n=1024$.
+  \item \textbf{B, structure:} banded inputs with the same $n=2048$ and $d=0.5,1,2,5\,\%$
+        (CSR only: the dense kernels do the same work for any structure).
+  \item \textbf{B, beyond the dense budget:} uniform inputs with $n=4096$ to $32768$ at
+        $d=0.1\,\%$ and $1\,\%$ (CSR), with the blocked kernel attempted at $d=0.1\,\%$ until it fails.
+  \item \textbf{Supplementary:} the dense kernels rebuilt with \texttt{-fno-tree-vectorize}, to
+        separate the effect of SIMD from that of the memory-access pattern.
+\end{itemize}
+
+\subsection{Correctness checks}
+
+\concept{Before benchmarking}
+Both programs run known-answer self tests for every kernel: the same hand-computed $3\times3$,
+$AI=A$, $IA=A$, $A\cdot0=0$, non-commuting $2\times2$ and $1\times1$ cases as in Assignment~1, plus
+random matrices of sizes that are not multiples of the tile (7 to 257) for which every optimised
+kernel must be bitwise identical to the baseline, and sparse inputs with empty rows for which the
+CSR product must equal the dense baseline (\texttt{results/selftest.txt}).
+
+\concept{After benchmarking}
+The result of the last repetition of every configuration is compared with NumPy's \texttt{A @ B}
+on the dense matrices ($n\le4096$) or with SciPy's CSR product (larger $n$), using the element-wise
+bound $|C_\text{impl}-C_\text{ref}|\le2\gamma_n(|A||B|)$ of Assignment~1. The tolerance is an
+absolute limit for each element, relative to the corresponding element of $|A||B|$; this avoids
+rejecting correct results where cancellation makes $C_{ij}$ close to zero. We also check that the
+nnz of the CSR output equals that of the reference and that all repetitions printed the same
+checksum.
+
+% =====================================================================
+\section{Results}
+
+\FloatBarrier
+\subsection{Correctness}
+All self tests passed (\texttt{results/selftest.txt}). All 97 completed configurations satisfy
+the tolerance; the largest error was 1.2\,\% of the bound (\texttt{results/validation.csv}). At
+every size the four dense kernels are \emph{bitwise identical} to each other, and in Part~B the
+CSR result has exactly the same values and the same nnz as the dense kernels on the same input. For
+$n\ge8192$ the CSR outputs were compared element-wise with SciPy ($n=8192$) or, where no dump was
+kept ($n\ge16384$), by nnz and checksum (relative difference $\le9\times10^{-13}$). Every
+configuration printed the same checksum in all its repetitions. Differences in runtime are
+therefore due to the order of the operations and the storage format, not to different arithmetic.
+
+\FloatBarrier
+\subsection{Part A: dense methods}
+
+\concept{Tile size (pre-study)}
+Table~\ref{tab:block} shows the tile-size sweep. $b=64$ was fastest at $n=1024$ and $2048$ and
+within 3.5\,\% of the best ($b=128$) at $n=512$, so it was used for all runs. A $64\times64$ tile
+of $B$ takes 32\,KB, the size of the L1 data cache; one row segment of $C$ (512\,B) and of $B$ stay
+in L1 while the tile is reused from L2.
+
+\begin{table}[H]
+\centering
+\caption{Pre-study: median time of the blocked kernel for each tile size $b$ (5 repetitions;
+fastest per row in bold). Raw data: \texttt{results/tuning/block\_sweep.csv}.}
+\label{tab:block}
+\small\BlockSweepTable
+\end{table}
+
+\concept{Runtime}
+Table~\ref{tab:densetime} and Figure~\ref{fig:densetime} give the median runtime of the four
+kernels. The baseline needed 182\,s at $n=3072$ and did not finish one multiplication within the
+300\,s budget at $n=4096$; the three optimised kernels completed every size. Blocking was the
+fastest method for $n\ge768$ and took 13.9\,s at $n=4096$.
+
+\begin{table}[H]
+\centering
+\caption{Part A: median time per multiplication and relative IQR (IQR/median, \%) over five
+repetitions. The IQR of the ikj and blocked kernels at $n=512$--$1024$ (up to 35\,\%) comes from
+single slow repetitions of runs shorter than 0.25\,s.}
+\label{tab:densetime}
+\resizebox{\linewidth}{!}{\DenseTimeTable}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.495\linewidth}\centering
+\includegraphics[width=\linewidth]{../results/figures/fig_dense_time.png}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.495\linewidth}\centering
+\includegraphics[width=\linewidth]{../results/figures/fig_dense_per_n3.png}
+\end{minipage}
+\caption{Part A. Left: median time per multiplication (log--log; the IQR bars are smaller than
+the markers). Right: median time divided by $n^3$, the cost of one multiply-add; a flat line means
+pure cubic growth.}
+\label{fig:densetime}
+\end{figure}
+
+Figure~\ref{fig:densetime} (right) shows three different behaviours:
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{ijk} cost rises from 0.55 to 6.3\,ns per multiply-add, the pattern of
+        Assignment~1. At $n=1024$ the median, 5.93\,s, is 8\,\% above the 5.48\,s of
+        Assignment~1.
+  \item \textbf{blocked} stays at 0.19--0.21\,ns (about 10\,GFLOP/s) from $n=64$ to $4096$: its
+        runtime grows exactly as $n^3$.
+  \item \textbf{ikj} costs the same as blocked up to $n=1024$, then about twice as much
+        (0.40--0.44\,ns) from $n=1536$ on. \textbf{transposed} rises only slowly, from 0.6 to
+        0.79\,ns, but is 1.8--3.7$\times$ slower than ikj at every size.
+\end{itemize}
+
+Table~\ref{tab:speedup} gives the speed-ups and the achieved GFLOP/s. The speed-up over the baseline
+grows with $n$ for the blocked kernel, from $2.8\times$ at $n=64$ to $31.8\times$ at $n=3072$, and
+has a local peak at $n=1024$ ($26\times$ for ikj and blocked), where the baseline suffers the
+conflict misses of power-of-two sizes.
+
+\begin{table}[H]
+\centering
+\caption{Part A: speed-up over the ijk baseline (ratio of medians), throughput
+$2n^3/\text{median}$, and peak working set of the process. The peak working set of ikj and
+blocked equals that of ijk within 1\,MB.}
+\label{tab:speedup}
+\resizebox{\linewidth}{!}{\DenseSpeedupTable}
+\end{table}
+
+\concept{Memory}
+The three in-place kernels use the same memory: their peak working set follows the storage
+model $24n^2$ bytes plus about 4\,MB of process baseline (231\,MB at $n=3072$ against 226\,MB
+predicted). The transposed kernel needs one more $n^2$ array, $32n^2$ bytes (541\,MB at $n=4096$
+against 537\,MB). Under the 4\,GB budget, the storage model limits any of these dense kernels to
+$n\le12\,900$ (in-place) and $n\le11\,180$ (transposed); the time budget limits the baseline to
+$n=3072$ and the blocked kernel, extrapolating its $n^3$ growth, to about $n\approx11\,400$.
+
+\concept{Supplementary: vectorisation versus access pattern}
+Table~\ref{tab:vec} compares the same source compiled with and without
+\texttt{-fno-tree-vectorize}; the checksums were identical in all runs. SSE2 vectorisation made
+ikj 1.25--1.65$\times$ faster and blocked 1.6--1.7$\times$ faster, and had no effect on the
+transposed kernel, whose inner loop is a reduction that GCC does not vectorise. Without
+vectorisation the blocked kernel is still $18.5\times$ faster than the baseline at $n=2048$
+(49.0\,s / 2.65\,s): most of its gain comes from the memory-access pattern, and SIMD adds a
+factor of about 1.6 on top of it.
+
+\begin{table}[H]
+\centering
+\caption{Supplementary: median time with and without loop vectorisation (same flags otherwise;
+builds alternated per configuration; 5 repetitions). Raw data:
+\texttt{results/supplementary/vectorization.csv}.}
+\label{tab:vec}
+\small\VecTable
+\end{table}
+
+\FloatBarrier
+\subsection{Part B: sparse versus dense}
+
+\concept{Matched comparison}
+Table~\ref{tab:sparse} and Figure~\ref{fig:sparsetime} compare the CSR product with the blocked
+kernel, and at $n=1024$ also with the baseline, on the same uniform inputs. The dense kernels do
+the same work for any density, so their time is flat. The CSR time grows with density, from
+8.8\,$\mu$s to 1.51\,s at $n=1024$. CSR was faster than the blocked kernel at every density up to
+25\,\% and slower at 50\,\% and 100\,\%, at both sizes; with the conversions included the
+crossover stays between 25\,\% and 50\,\%.
+
+\begin{table}[H]
+\centering
+\caption{Part B, uniform inputs: nonzeros, output density, median CSR multiplication time, CSR time
+including the conversions (dense$\to$CSR of $A$ and $B$ plus CSR$\to$dense of $C$, summed
+explicitly), and the dense kernels on the same logical inputs. $^\dagger$Speed-up = blocked /
+CSR multiplication (both medians). nnz(B) equals nnz(A) by construction.}
+\label{tab:sparse}
+\resizebox{\linewidth}{!}{\SparseTable}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.97\linewidth]{../results/figures/fig_sparse_time.png}
+\caption{Part B: median time per multiplication against input density, for the same logical
+inputs. The dotted line adds the separately measured conversion times to the CSR multiplication.}
+\label{fig:sparsetime}
+\end{figure}
+
+\concept{Conversion costs}
+Table~\ref{tab:sparsecost} separates the costs. Converting $A$ and $B$ to CSR scans $2n^2$ dense
+entries, so it costs at least 2.7\,ms at $n=1024$ and grows with the number of nonzeros written
+(20\,ms at 50\,\%); converting $C$ back costs 1--2.6\,ms. At 0.1--0.5\,\% density the conversions
+take 13--420$\times$ longer than the multiplication itself, yet CSR including conversions is still
+$63\times$ ($n=1024$) and $93\times$ ($n=2048$) faster than the blocked kernel at 0.1\,\%. From
+2--5\,\% on the multiplication dominates.
+
+\begin{table}[H]
+\centering
+\caption{Part B, uniform inputs: CSR cost breakdown (medians), time per scalar product
+($\text{multiply time}/W$, with $W=\sum_k\mathrm{nnz}(A_{:,k})\,\mathrm{nnz}(B_{k,:})$), peak
+working set, and the analytical CSR storage of $A$, $B$ and $C$.
+$^\ast$Process of the main run, which after the multiplications also expands $A$ and $B$ to
+dense arrays to time the conversions; ``CSR only'' is a supplementary run of the multiplication
+alone (\texttt{results/supplementary/sparse\_memory.csv}).}
+\label{tab:sparsecost}
+\resizebox{\linewidth}{!}{\SparseCostTable}
+\end{table}
+
+\concept{Output fill-in}
+The output is much denser than the inputs (Figure~\ref{fig:fill}). At $n=2048$, inputs with 2\,\%
+nonzeros give a product with 55.9\,\% nonzeros, and from 5\,\% on $C$ is practically dense. The
+measured output densities follow the model $1-(1-d^2)^n$ closely, and they also depend on $n$: the same
+1\,\% input density gives 9.7\,\% output density at $n=1024$ and 18.5\,\% at $n=2048$.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.495\linewidth}\centering
+\includegraphics[width=\linewidth]{../results/figures/fig_sparse_fill.png}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.495\linewidth}\centering
+\includegraphics[width=\linewidth]{../results/figures/fig_sparse_per_product.png}
+\end{minipage}
+\caption{Left: density of the product against the input density, with the model for independent
+uniform inputs. Right: CSR time per scalar product against the number of products $W$; the
+horizontal lines are the blocked kernel's time per multiply-add (median$/n^3$).}
+\label{fig:fill}
+\end{figure}
+
+\concept{Cost per scalar product}
+The CSR time per scalar product (Figure~\ref{fig:fill}, right) is 4--12\,ns while the products
+per row are few (density $\le5\,\%$) and falls to 1.4--1.6\,ns at high density, where each row of
+$C$ receives many products into an accumulator that stays in cache. Even at its best, a CSR
+product costs about 7$\times$ more than a multiply-add of the blocked kernel (0.21\,ns), because
+each one needs an index load, an indirect access to the accumulator and a marker test, and it is
+not vectorised.
+
+\concept{Memory}
+Figure~\ref{fig:sparsemem} shows the peak working set. The CSR multiplication alone follows the
+storage model of $A$, $B$ and $C$ plus the 4\,MB process baseline; because $C$ fills in, its memory
+grows with density much faster than that of the inputs. The CSR multiplication needed less memory than
+the blocked kernel up to 25\,\% density at both sizes (23 against 29\,MB at $n=1024$), about the
+same at 50\,\%, and more at 100\,\% density, where CSR stores 12 bytes per entry against 8.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.62\linewidth]{../results/figures/fig_sparse_memory.png}
+\caption{Peak working set of the CSR multiplication alone (supplementary run without conversions)
+and of the blocked kernel on the same inputs, with the CSR storage model of $A$, $B$ and $C$.}
+\label{fig:sparsemem}
+\end{figure}
+
+\concept{Structure}
+Table~\ref{tab:structure} compares banded and uniform inputs with the same $n=2048$, density and
+number of nonzeros. Their numbers of scalar products differ by less than 0.5\,\%, but the banded
+products are 5--14$\times$ sparser, because a product of two bands is again a band, and the CSR
+multiplication is 2.1--5.6$\times$ faster (1.5--2.9\,ns per product instead of 4.6--9.2\,ns),
+because the rows of $B$ that are combined touch neighbouring columns of the accumulator.
+
+\begin{table}[H]
+\centering
+\caption{Part B, $n=2048$: uniform versus banded inputs with the same density and nnz.
+``Products'' is $W=\sum_k \mathrm{nnz}(A_{:,k})\,\mathrm{nnz}(B_{k,:})$.}
+\label{tab:structure}
+\small\StructureTable
+\end{table}
+
+\concept{Largest feasible sizes}
+Table~\ref{tab:large} and Figure~\ref{fig:large} extend the comparison beyond the dense budget.
+At 0.1\,\% density the blocked kernel took 112\,s at $n=8192$ and was not attempted at
+$n=16384$: its storage model ($24n^2=6.4$\,GB) exceeds the 4\,GB budget. CSR multiplied the same
+$n=8192$ matrices in 4.6\,ms and reached $n=32768$ in 0.30\,s with 447\,MB, a size at which the
+three dense matrices would need 25.8\,GB. At 1\,\% density the output fills in (80.6\,\% at
+$n=16384$, 216 million nonzeros, 2.7\,GB) and the CSR run at $n=32768$ was stopped when it
+exceeded the 4\,GB budget; the fill-in model predicts about $10^9$ output nonzeros (12\,GB).
+
+\begin{table}[H]
+\centering
+\caption{Part B beyond the dense budget (uniform inputs). The CSR peak working set at $n=4096$
+includes the dense buffers of the conversion timing (conversions were timed only for
+$n\le4096$). ``memory limit'' at blocked $n=16384$: not attempted, storage model above 4\,GB.}
+\label{tab:large}
+\resizebox{\linewidth}{!}{\LargeTable}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.62\linewidth]{../results/figures/fig_sparse_large.png}
+\caption{Median time per multiplication of CSR (0.1\,\% and 1\,\% density) and of the blocked
+kernel (0.1\,\%) up to the largest size that fits the budgets.}
+\label{fig:large}
+\end{figure}
+
+\concept{Limits reached}
+Table~\ref{tab:limits} lists every configuration that hit a budget (\texttt{results/summary/limits.csv}).
+
+\begin{table}[H]
+\centering
+\caption{Largest completed size per method and the limit that stopped it.}
+\label{tab:limits}
+\small
+\begin{tabularx}{\linewidth}{@{}l l r X@{}}
+\toprule
+Method & Input & Largest $n$ & Limit reached \\
+\midrule
+ijk (baseline) & dense & 3072 & $n=4096$: no multiplication within 300\,s \\
+ikj, transposed, blocked & dense & 4096 & none (largest tested size) \\
+blocked & uniform 0.1\,\% & 8192 & $n=16384$: storage model 6.4\,GB $>$ 4\,GB, not attempted \\
+CSR & uniform 0.1\,\% & 32768 & none (largest tested size) \\
+CSR & uniform 1\,\% & 16384 & $n=32768$: peak working set $>$ 4\,GB (output fill-in) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\concept{Deviations from the plan}
+Two events interrupted the campaign. (i) During the first run of ijk at $n=3072$ the laptop
+entered Modern Standby for seven minutes (Windows Kernel-Power events 506/507); that run and the
+following $n=4096$ run were discarded (\texttt{results/raw/excluded.csv}), a keep-awake request
+was added, and both configurations were rerun. (ii) The campaign was stopped by the operating
+environment for low system memory while it attempted the blocked kernel at $n=16384$; the driver
+was then given a check of the dense storage model against the budget before launching a dense
+run, and the remaining configurations were run with a \texttt{--resume} option that skips completed
+ones. Each configuration runs in its own process, so completed results were not affected.
+
+% =====================================================================
+\section{Discussion}
+
+\concept{Part A: what makes the optimised kernels faster}
+All four kernels do the same arithmetic in the same order for each $C_{ij}$, and the results are
+bitwise identical, so the differences in Table~\ref{tab:densetime} come only from how the
+operations are scheduled. The baseline reads a column of $B$ in its inner loop; as in
+Assignment~1, its cost per multiply-add grows tenfold with $n$. Reordering the loops to i-k-j
+makes the inner loop stream a row of $B$ and a row of $C$ with unit stride and independent
+iterations, which removes the strided access and lets GCC use SSE2 vectors. This is enough to run
+at about 10\,GFLOP/s while $B$ (8\,MB at $n=1024$) fits in the 16\,MB L3 cache. From $n=1536$
+($B$ = 18.9\,MB) every row $i$ streams all of $B$ from DRAM again, and the cost per multiply-add
+doubles. Blocking restricts the inner loops to a $64\times64$ tile of $B$ that is reused for 64
+rows of $C$, so the traffic to memory falls by a factor of about $b$ and the cost per multiply-add
+stays flat up to $n=4096$. This supports H1 for the blocked kernel; for ikj it holds only while $B$
+fits in L3. H2 is supported: blocking was the fastest kernel from $n=768$, and ikj was as fast as
+blocking for $n\le1024$.
+
+The transposed kernel removes the strided access too, but stays at about 0.8\,ns per multiply-add.
+Its inner loop is a reduction into one scalar, so each addition must wait for the previous one,
+and GCC may not vectorise it without reassociation (Table~\ref{tab:vec}). It is limited by the
+latency of the floating-point additions, not by memory. A loop order that allows independent
+updates was therefore more important than a contiguous layout alone. The cost of the
+transposition itself is small: one $n^2$ copy against $n^3$ multiply-adds.
+
+The supplementary experiment separates two effects that a single speed-up figure mixes. Of the
+$27.8\times$ of blocking at $n=2048$, a factor of about $18.5$ remains without SIMD, so the access
+pattern accounts for most of the gain. The 1.6$\times$ from vectorisation is below the factor
+of two that 16-byte vectors would allow, which also suggests that memory, not arithmetic, limits
+these kernels. A library such as OpenBLAS would add register blocking, 32-byte AVX2 FMA vectors and
+multiple threads \cite{goto}; these were outside the scope of this sequential study.
+
+\concept{Part B: optimisation effect versus sparse-storage effect}
+A speed-up of CSR over the ijk baseline mixes two effects. At $n=1024$ and 1\,\% density the CSR
+product was $10\,600\times$ faster than the baseline; of this, a factor of 22 is the dense
+optimisation (ijk $\to$ blocked, on the same input) and a factor of 472 is the sparse storage
+(blocked $\to$ CSR). Even at 100\,\% density, CSR was $3.5\times$ faster than the baseline
+because Gustavson's algorithm reads the rows of $B$ in i-k-j order, while it was $6\times$ slower
+than the blocked kernel. All Part~B speed-ups are therefore reported against the blocked kernel,
+the fastest dense method.
+
+\concept{When the sparse representation pays off}
+Against the blocked kernel, CSR saves the work on zeros (its work is $W\approx n^3d^2$ instead of
+$n^3$) but pays about 1.4--12\,ns per product instead of 0.21\,ns. With the measured high-density cost of
+1.5\,ns per product, the break-even density is $d\approx\sqrt{0.21/1.5}\approx37\,\%$, which agrees
+with the measured crossover between 25\,\% and 50\,\% at both sizes. H3 is supported at low
+density but not for the crossover: it was not ``of the order of ten percent'' but between 25\,\% and
+50\,\%, because the cost per product fell at high density. For memory, the crossover is similar
+(25--50\,\%) because the output fills in: at these densities $C$ is dense, and CSR needs 12 bytes per
+entry.
+
+\concept{Density alone does not determine performance}
+Three results show that the percentage of zeros is not enough to predict the outcome (H4,
+supported). First, the output density depends on $n$ as well as on the input density
+(Figure~\ref{fig:fill}), and the output size drives both the memory and the cost of writing $C$.
+Second, the CSR cost per product varied by a factor of 8 between densities, so the time is not
+proportional to the number of nonzeros. Third, at the same density, nnz and number of products,
+banded inputs produced 5--14$\times$ fewer output nonzeros and ran up to 5.6$\times$ faster than
+uniform inputs. What determines the CSR runtime is the number of scalar products, the number of
+distinct output entries and the locality of the accumulator accesses, all of which depend on the
+structure.
+
+\concept{Conversions and scope}
+Conversions matter only when the data are produced in dense form: at low density, converting
+$A$ and $B$ cost up to 420 times more than the multiplication, but the total was still far below
+the dense multiplication time because a conversion is $O(n^2)$ and the dense product $O(n^3)$. In
+applications where the matrices are created in sparse form, the conversion disappears, and the
+largest feasible size is limited by the output fill-in instead of $n^2$ storage: CSR handled
+$n=32768$ at 0.1\,\% density but not at 1\,\%.
+
+\concept{Limitations}
+\begin{itemize}[leftmargin=1.4em]
+  \item One machine, one compiler and one set of flags; no \texttt{-march}, so no AVX2 or FMA. The
+        relative ranking of the dense kernels may change with wider vectors or other cache sizes.
+  \item The baseline varied between processes: on the Part~B inputs of $n=1024$ (same kernel, same
+        work) its median ranged from 4.0 to 5.6\,s, and from 5.48\,s (Assignment~1) to 5.93\,s on
+        the dense inputs. Assignment~1 found this kernel sensitive to memory layout; we did not
+        investigate the cause here. Speed-ups relative to the baseline carry this uncertainty
+        ($\pm15\,\%$), those of the blocked kernel do not (209--253\,ms).
+  \item Synthetic inputs: uniform and banded structures only. Real sparse matrices (power-law
+        rows, blocks) would place the crossover elsewhere; the CSR output columns are unsorted,
+        which some consumers would have to sort at extra cost.
+  \item The memory metric is the peak working set of the whole process, sampled every 20\,ms. It
+        includes the process baseline (about 4\,MB) and, in the main Part~B runs, the conversion
+        buffers; the supplementary run isolates the multiplication.
+  \item No hardware counters were used: the explanations of the L3 and latency limits are
+        consistent with the measurements but not confirmed by cache-miss counts.
+\end{itemize}
+
+% =====================================================================
+\Needspace{22\baselineskip}
+\section{Conclusions}
+\begin{titledbox}{Key findings}
+On this machine and with these settings:
+\begin{itemize}[leftmargin=1.2em]
+  \item All optimised dense kernels gave \textbf{bitwise-identical results} to the baseline, so
+        their differences are purely in how they access memory and use the processor.
+  \item \textbf{Cache blocking} was the fastest dense method: about 10\,GFLOP/s at every size,
+        $27.8\times$ faster than the baseline at $n=2048$ and $31.8\times$ at $n=3072$; the
+        baseline could not finish $n=4096$ in 300\,s, blocking took 13.9\,s.
+  \item \textbf{Loop reordering} alone was as fast as blocking while $B$ fit in the L3 cache and
+        half as fast beyond it; the \textbf{transposed} layout was limited by the latency of its
+        scalar reduction. Vectorisation contributed a factor of 1.25--1.7, the access pattern
+        the rest.
+  \item \textbf{CSR} beat the fastest dense kernel by more than two orders of magnitude at
+        densities $\le1\,\%$ and by $1.6$--$2\times$ at 25\,\%, and lost at 50\,\% and above;
+        conversions mattered only below about 1\,\%.
+  \item The \textbf{sparse advantage was limited by fill-in and structure}, not by the input
+        density alone: products of sparse matrices became dense quickly, and inputs with the same
+        density but a banded structure ran up to $5.6\times$ faster.
+  \item CSR extended the largest feasible size from $n=8192$ (dense, time and memory budgets) to
+        $n=32768$ at 0.1\,\% density; at 1\,\% the output fill-in stopped it at $n=16384$.
+\end{itemize}
+\end{titledbox}
+
+\concept{Open questions}
+Whether register blocking and AVX2/FMA (\texttt{-march=native}) change the ranking; a
+hardware-counter confirmation of the cache explanations; and how the crossover moves for real
+sparse matrices with irregular structure.
+
+% =====================================================================
+\section*{Reproducibility materials}
+Repository: \url{\RepoURL}. It contains:
+\begin{itemize}[leftmargin=1.4em]
+  \item source code: \texttt{c/common.h}, \texttt{c/dense.c} (baseline copied unchanged from
+        Assignment~1, \url{\AOneURL}), \texttt{c/sparse.c};
+  \item configuration: \texttt{config/benchmark\_config.json} (sizes, densities, seeds,
+        repetitions, budgets, flags, tile size);
+  \item input generation, \texttt{scripts/generate\_inputs.py} (SHA-256 of every input in
+        \texttt{data/manifest.json}), and the build, tuning, benchmark, validation,
+        supplementary and analysis scripts;
+  \item all raw measurements: \texttt{results/raw/} (with the excluded rows and the reason for
+        excluding them), \texttt{results/tuning/} and \texttt{results/supplementary/}, plus the
+        summaries and figures;
+  \item a README with exact build and run commands and dependency versions.
+\end{itemize}
+
+\section*{Use of generative AI}
+Claude (Anthropic) was used to help write the implementations, the benchmarking and analysis scripts,
+and a draft of this report. All numbers in this report come from running the code on the machine
+described above; the raw data are included. The author reviewed the code, the results and the text.
+
+% =====================================================================
+\begin{thebibliography}{99}\small\sloppy
+\setlength{\itemsep}{3pt}
+\bibitem{golub} G.~H. Golub and C.~F. Van~Loan, \emph{Matrix Computations}, 4th ed. Baltimore, MD, USA: Johns Hopkins Univ. Press, 2013.
+\bibitem{drepper} U.~Drepper, ``What every programmer should know about memory,'' Red Hat, Inc., 2007. [Online]. Available: \url{https://people.freebsd.org/~lstewart/articles/cpumemory.pdf}
+\bibitem{lam} M.~S. Lam, E.~E. Rothberg, and M.~E. Wolf, ``The cache performance and optimizations of blocked algorithms,'' in \emph{Proc. ASPLOS-IV}, 1991, pp.~63--74.
+\bibitem{goto} K.~Goto and R.~A. van~de~Geijn, ``Anatomy of high-performance matrix multiplication,'' \emph{ACM Trans. Math. Softw.}, vol.~34, no.~3, art.~12, 2008.
+\bibitem{strassen} V.~Strassen, ``Gaussian elimination is not optimal,'' \emph{Numerische Mathematik}, vol.~13, pp.~354--356, 1969.
+\bibitem{gcc12} GNU Project, ``GCC 12 Release Series: Changes, New Features, and Fixes,'' 2022. [Online]. Available: \url{https://gcc.gnu.org/gcc-12/changes.html}
+\bibitem{saad} Y.~Saad, \emph{Iterative Methods for Sparse Linear Systems}, 2nd ed. Philadelphia, PA, USA: SIAM, 2003.
+\bibitem{gustavson} F.~G. Gustavson, ``Two fast algorithms for sparse matrices: Multiplication and permuted transposition,'' \emph{ACM Trans. Math. Softw.}, vol.~4, no.~3, pp.~250--269, 1978.
+\bibitem{smmp} R.~E. Bank and C.~C. Douglas, ``Sparse matrix multiplication package (SMMP),'' \emph{Advances in Computational Mathematics}, vol.~1, pp.~127--137, 1993.
+\bibitem{davis} T.~A. Davis, \emph{Direct Methods for Sparse Linear Systems}. Philadelphia, PA, USA: SIAM, 2006.
+\bibitem{higham} N.~J. Higham, \emph{Accuracy and Stability of Numerical Algorithms}, 2nd ed. Philadelphia, PA, USA: SIAM, 2002.
+\bibitem{scipy} P.~Virtanen \emph{et al.}, ``SciPy 1.0: Fundamental algorithms for scientific computing in Python,'' \emph{Nature Methods}, vol.~17, pp.~261--272, 2020.
+\bibitem{amd} Advanced Micro Devices, ``Software Optimization Guide for AMD Family 19h Processors,'' Pub. no. 56665, 2020.
+\bibitem{psutil} G.~Rodola, ``psutil documentation,'' 2026. [Online]. Available: \url{https://psutil.readthedocs.io/}
+\end{thebibliography}
+
+\end{document}

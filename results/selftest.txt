@@ -1,0 +1,71 @@
+== dense ==
+ijk: known 3x3 product                       PASS
+ijk: A * I == A                              PASS
+ijk: I * A == A                              PASS
+ijk: A * 0 == 0                              PASS
+ijk: non-commuting 2x2                       PASS
+ijk: 1x1                                     PASS
+ikj: known 3x3 product                       PASS
+ikj: A * I == A                              PASS
+ikj: I * A == A                              PASS
+ikj: A * 0 == 0                              PASS
+ikj: non-commuting 2x2                       PASS
+ikj: 1x1                                     PASS
+transposed: known 3x3 product                PASS
+transposed: A * I == A                       PASS
+transposed: I * A == A                       PASS
+transposed: A * 0 == 0                       PASS
+transposed: non-commuting 2x2                PASS
+transposed: 1x1                              PASS
+blocked: known 3x3 product                   PASS
+blocked: A * I == A                          PASS
+blocked: I * A == A                          PASS
+blocked: A * 0 == 0                          PASS
+blocked: non-commuting 2x2                   PASS
+blocked: 1x1                                 PASS
+ikj == ijk bitwise, n=7                      PASS
+transposed == ijk bitwise, n=7               PASS
+blocked(bs=64) == ijk bitwise, n=7           PASS
+blocked(bs=2) == ijk bitwise, n=7            PASS
+blocked(bs=16) == ijk bitwise, n=7           PASS
+ikj == ijk bitwise, n=33                     PASS
+transposed == ijk bitwise, n=33              PASS
+blocked(bs=64) == ijk bitwise, n=33          PASS
+blocked(bs=2) == ijk bitwise, n=33           PASS
+blocked(bs=16) == ijk bitwise, n=33          PASS
+ikj == ijk bitwise, n=100                    PASS
+transposed == ijk bitwise, n=100             PASS
+blocked(bs=64) == ijk bitwise, n=100         PASS
+blocked(bs=2) == ijk bitwise, n=100          PASS
+blocked(bs=16) == ijk bitwise, n=100         PASS
+ikj == ijk bitwise, n=130                    PASS
+transposed == ijk bitwise, n=130             PASS
+blocked(bs=64) == ijk bitwise, n=130         PASS
+blocked(bs=2) == ijk bitwise, n=130          PASS
+blocked(bs=16) == ijk bitwise, n=130         PASS
+ikj == ijk bitwise, n=257                    PASS
+transposed == ijk bitwise, n=257             PASS
+blocked(bs=64) == ijk bitwise, n=257         PASS
+blocked(bs=2) == ijk bitwise, n=257          PASS
+blocked(bs=16) == ijk bitwise, n=257         PASS
+selftest PASSED
+
+== sparse ==
+csr: known 3x3 product                       PASS
+csr: A * I == A                              PASS
+csr: I * A == A                              PASS
+csr: A * 0 == 0 (empty result)               PASS
+csr: non-commuting 2x2                       PASS
+csr: 1x1                                     PASS
+dense -> csr -> dense round trip             PASS
+csr == dense ijk values, n=17 density=0.02   PASS
+csr == dense ijk values, n=17 density=0.20   PASS
+csr == dense ijk values, n=17 density=0.90   PASS
+csr == dense ijk values, n=64 density=0.02   PASS
+csr == dense ijk values, n=64 density=0.20   PASS
+csr == dense ijk values, n=64 density=0.90   PASS
+csr == dense ijk values, n=150 density=0.02  PASS
+csr == dense ijk values, n=150 density=0.20  PASS
+csr == dense ijk values, n=150 density=0.90  PASS
+selftest PASSED
+

@@ -1,0 +1,39 @@
+experiment,method,input,largest_ok_n,largest_attempted_n,failures
+dense,blocked,dense,4096,4096,none
+dense,ijk,dense,3072,4096,n=4096: timeout (no multiplication finished within 300 s)
+dense,ikj,dense,4096,4096,none
+dense,transposed,dense,4096,4096,none
+sparse,blocked,uniform_d0.1,2048,2048,none
+sparse,blocked,uniform_d0.5,2048,2048,none
+sparse,blocked,uniform_d1,2048,2048,none
+sparse,blocked,uniform_d10,2048,2048,none
+sparse,blocked,uniform_d100,2048,2048,none
+sparse,blocked,uniform_d2,2048,2048,none
+sparse,blocked,uniform_d25,2048,2048,none
+sparse,blocked,uniform_d5,2048,2048,none
+sparse,blocked,uniform_d50,2048,2048,none
+sparse,csr,uniform_d0.1,2048,2048,none
+sparse,csr,uniform_d0.5,2048,2048,none
+sparse,csr,uniform_d1,2048,2048,none
+sparse,csr,uniform_d10,2048,2048,none
+sparse,csr,uniform_d100,2048,2048,none
+sparse,csr,uniform_d2,2048,2048,none
+sparse,csr,uniform_d25,2048,2048,none
+sparse,csr,uniform_d5,2048,2048,none
+sparse,csr,uniform_d50,2048,2048,none
+sparse,ijk,uniform_d0.1,1024,1024,none
+sparse,ijk,uniform_d0.5,1024,1024,none
+sparse,ijk,uniform_d1,1024,1024,none
+sparse,ijk,uniform_d10,1024,1024,none
+sparse,ijk,uniform_d100,1024,1024,none
+sparse,ijk,uniform_d2,1024,1024,none
+sparse,ijk,uniform_d25,1024,1024,none
+sparse,ijk,uniform_d5,1024,1024,none
+sparse,ijk,uniform_d50,1024,1024,none
+sparse_large,blocked,uniform_d0.1,8192,16384,n=16384: memory_limit (not attempted: storage model 24n^2 = 6.44 GB exceeds the 4 GB budget)
+sparse_large,csr,uniform_d0.1,32768,32768,none
+sparse_large,csr,uniform_d1,16384,32768,n=32768: memory_limit (peak working set exceeded 4000000000 bytes)
+structure,csr,banded_d0.5,2048,2048,none
+structure,csr,banded_d1,2048,2048,none
+structure,csr,banded_d2,2048,2048,none
+structure,csr,banded_d5,2048,2048,none

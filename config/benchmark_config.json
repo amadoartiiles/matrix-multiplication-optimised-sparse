@@ -1,0 +1,67 @@
+{
+  "measured_repetitions": 5,
+  "warmup_runs": 1,
+  "min_batch_time_s": 0.1,
+  "time_limit_per_multiplication_s": 300,
+  "memory_budget_bytes": 4000000000,
+  "memory_sampling_interval_s": 0.02,
+  "pause_between_runs_s": 2,
+  "c": {
+    "compiler": "gcc",
+    "flags": ["-O2", "-std=c11", "-Wall", "-Wextra"]
+  },
+  "dense_input": {
+    "reused_from": "Assignment 1 (scripts/generate_inputs.py, commit 441ae4d)",
+    "generator": "numpy.random.default_rng (PCG64), seeded with [seed, n]",
+    "seed": 20261012,
+    "distribution": "uniform",
+    "low": -1.0,
+    "high": 1.0,
+    "dtype": "float64 (IEEE 754 binary64), little-endian, row-major"
+  },
+  "sparse_input": {
+    "generator": "numpy.random.default_rng (PCG64), seeded with [seed, n, round(density_pct*1000), structure_id, matrix_id]",
+    "seed": 20261026,
+    "values": "uniform in [-1, 1), exact zeros re-drawn",
+    "structures": {
+      "uniform": "exactly round(d*n^2) nonzeros at distinct positions drawn uniformly at random from the n^2 positions",
+      "banded": "exactly round(d*n^2) nonzeros in the narrowest band |i-j| <= w that holds them: diagonals |i-j| < w are full, the remaining nonzeros are placed at random positions of the two outermost diagonals"
+    },
+    "format": "CSR1 binary: int64 header {magic, n, nnz}, int64 row_ptr[n+1], int32 col[nnz] (sorted per row), float64 val[nnz]"
+  },
+  "experiments": {
+    "dense": {
+      "description": "Part A: baseline vs optimised dense kernels on the Assignment 1 inputs",
+      "sizes": [64, 128, 256, 512, 768, 1024, 1536, 2048, 3072, 4096],
+      "methods": ["ijk", "ikj", "transposed", "blocked"],
+      "block_size": 64
+    },
+    "sparse": {
+      "description": "Part B: CSR vs dense on matched sparse inputs (uniform random structure)",
+      "sizes": [1024, 2048],
+      "densities_pct": [0.1, 0.5, 1, 2, 5, 10, 25, 50, 100],
+      "structure": "uniform",
+      "methods": {"csr": [1024, 2048], "blocked": [1024, 2048], "ijk": [1024]},
+      "conversions": true
+    },
+    "structure": {
+      "description": "Part B: same density, different nonzero structure (CSR only; dense time does not depend on the structure)",
+      "sizes": [2048],
+      "densities_pct": [0.5, 1, 2, 5],
+      "structure": "banded",
+      "methods": {"csr": [2048]},
+      "conversions": false
+    },
+    "sparse_large": {
+      "description": "Part B: sizes beyond the dense budget (CSR), with the dense method attempted until it fails",
+      "sizes": [4096, 8192, 16384, 32768],
+      "densities_pct": [0.1, 1],
+      "structure": "uniform",
+      "methods": {"csr": [4096, 8192, 16384, 32768], "blocked": [4096, 8192, 16384]},
+      "dense_densities_pct": [0.1],
+      "conversions": true,
+      "conversions_max_n": 4096,
+      "dump_max_n": 8192
+    }
+  }
+}
