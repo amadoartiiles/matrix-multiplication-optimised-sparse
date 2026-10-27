@@ -16,7 +16,7 @@ The report is in `report/` (`report.tex` → `report.pdf`).
 
 * Baseline kernel: the C i-j-k kernel of `c/matmul.c` from
   <https://github.com/amadoartiiles/matrix-multiplication-studies> (commit `441ae4d`), copied
-  without changes into `c/dense.c` (`mm_ijk`).
+  into `c/dense.c` with only the function renamed (`multiply` -> `mm_ijk`).
 * Dense inputs: same generator, seed (20261012) and file format; `generate_inputs.py --check-a1`
   verifies that the files are byte-identical to the Assignment 1 inputs (16/16 shared files).
 * Driver, memory measurement (psutil peak working set), validation bound and budgets follow

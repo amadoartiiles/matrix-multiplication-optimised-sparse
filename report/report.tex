@@ -136,7 +136,8 @@ exceeded the time budget at $n=4096$. Loop reordering matched blocking until $B$
 16\,MB L3 cache and then became twice as slow; SIMD vectorisation contributed a factor of
 1.25--1.7, the access pattern the rest. On uniformly random inputs, CSR beat the blocked kernel
 by more than two orders of magnitude at densities up to 1\,\%, by $1.6$--$2\times$ at 25\,\% and
-lost at 50\,\%; conversion costs dominated only below about 1\,\%. CSR reached $n=32768$ at
+lost at 50\,\%; the separately timed conversions dominated the CSR time up to 1--2\,\% density
+but never removed its advantage. CSR reached $n=32768$ at
 0.1\,\% density in 0.3\,s, where dense storage alone would need 26\,GB. The advantage depended on
 the output fill-in and the nonzero structure, not on input density alone: banded inputs with the
 same density and the same number of scalar products ran 2--5.6$\times$ faster than uniform ones.
@@ -233,7 +234,7 @@ All methods are written in C11 by the author and compiled with the same flags; n
 library. Figure~\ref{lst:kernels} shows the dense kernels and Figure~\ref{lst:csr} the CSR kernel.
 
 \begin{figure}[H]
-\begin{codebox}{C}{ijk (baseline) \textperiodcentered{} c/dense.c, copied unchanged from Assignment 1}{mijk}
+\begin{codebox}{C}{ijk (baseline) \textperiodcentered{} c/dense.c, body copied unchanged from Assignment 1}{mijk}
 for (int i = 0; i < n; i++)
     for (int j = 0; j < n; j++) {
         double s = 0.0;
@@ -441,7 +442,9 @@ therefore due to the order of the operations and the storage format, not to diff
 
 \concept{Tile size (pre-study)}
 Table~\ref{tab:block} shows the tile-size sweep. $b=64$ was fastest at $n=1024$ and $2048$ and
-within 3.5\,\% of the best ($b=128$) at $n=512$, so it was used for all runs. A $64\times64$ tile
+within 3.5\,\% of the best ($b=128$) at $n=512$, so it was used for all runs. The sweep shown was
+repeated with the same protocol, on AC power, after the main campaign; it confirms the value
+$b=64$ that had been fixed in the configuration before the main runs. A $64\times64$ tile
 of $B$ takes 32\,KB, the size of the L1 data cache; one row segment of $C$ (512\,B) and of $B$ stay
 in L1 while the tile is reused from L2.
 
@@ -462,8 +465,9 @@ fastest method for $n\ge768$ and took 13.9\,s at $n=4096$.
 \begin{table}[H]
 \centering
 \caption{Part A: median time per multiplication and relative IQR (IQR/median, \%) over five
-repetitions. The IQR of the ikj and blocked kernels at $n=512$--$1024$ (up to 35\,\%) comes from
-single slow repetitions of runs shorter than 0.25\,s.}
+repetitions. The large IQR of the ikj and blocked kernels at $n=512$--$1024$ (up to 35\,\%) comes
+from runs shorter than 0.3\,s in which two of the five repetitions were 20--45\,\% slower than the
+other three (e.g.\ blocked, $n=768$: 77--112\,ms).}
 \label{tab:densetime}
 \resizebox{\linewidth}{!}{\DenseTimeTable}
 \end{table}
@@ -487,7 +491,7 @@ Figure~\ref{fig:densetime} (right) shows three different behaviours:
   \item \textbf{ijk} cost rises from 0.55 to 6.3\,ns per multiply-add, the pattern of
         Assignment~1. At $n=1024$ the median, 5.93\,s, is 8\,\% above the 5.48\,s of
         Assignment~1.
-  \item \textbf{blocked} stays at 0.19--0.21\,ns (about 10\,GFLOP/s) from $n=64$ to $4096$: its
+  \item \textbf{blocked} stays at 0.19--0.23\,ns (about 10\,GFLOP/s) from $n=64$ to $4096$: its
         runtime grows exactly as $n^3$.
   \item \textbf{ikj} costs the same as blocked up to $n=1024$, then about twice as much
         (0.40--0.44\,ns) from $n=1536$ on. \textbf{transposed} rises only slowly, from 0.6 to
@@ -605,7 +609,7 @@ horizontal lines are the blocked kernel's time per multiply-add (median$/n^3$).}
 
 \concept{Cost per scalar product}
 The CSR time per scalar product (Figure~\ref{fig:fill}, right) is 4--12\,ns while the products
-per row are few (density $\le5\,\%$) and falls to 1.4--1.6\,ns at high density, where each row of
+per row are few (density $\le5\,\%$) and falls to 1.4--1.7\,ns at high density, where each row of
 $C$ receives many products into an accumulator that stays in cache. Even at its best, a CSR
 product costs about 7$\times$ more than a multiply-add of the blocked kernel (0.21\,ns), because
 each one needs an index load, an indirect access to the accumulator and a marker test, and it is
@@ -692,8 +696,9 @@ CSR & uniform 1\,\% & 16384 & $n=32768$: peak working set $>$ 4\,GB (output fill
 Two events interrupted the campaign. (i) During the first run of ijk at $n=3072$ the laptop
 entered Modern Standby for seven minutes (Windows Kernel-Power events 506/507); that run and the
 following $n=4096$ run were discarded (\texttt{results/raw/excluded.csv}), a keep-awake request
-was added, and both configurations were rerun. (ii) The campaign was stopped by the operating
-environment for low system memory while it attempted the blocked kernel at $n=16384$; the driver
+was added, and both configurations were rerun. (ii) The benchmarking session was stopped because
+the laptop ran low on system memory while the driver attempted the blocked kernel at $n=16384$
+(6.4\,GB of dense storage, with other applications open); that attempt was not recorded, the driver
 was then given a check of the dense storage model against the budget before launching a dense
 run, and the remaining configurations were run with a \texttt{--resume} option that skips completed
 ones. Each configuration runs in its own process, so completed results were not affected.
@@ -712,8 +717,12 @@ at about 10\,GFLOP/s while $B$ (8\,MB at $n=1024$) fits in the 16\,MB L3 cache. 
 ($B$ = 18.9\,MB) every row $i$ streams all of $B$ from DRAM again, and the cost per multiply-add
 doubles. Blocking restricts the inner loops to a $64\times64$ tile of $B$ that is reused for 64
 rows of $C$, so the traffic to memory falls by a factor of about $b$ and the cost per multiply-add
-stays flat up to $n=4096$. This supports H1 for the blocked kernel; for ikj it holds only while $B$
-fits in L3. H2 is supported: blocking was the fastest kernel from $n=768$, and ikj was as fast as
+stays flat up to $n=4096$. H1 is therefore only partly supported: the constant cost per
+multiply-add holds for the blocked kernel, and for ikj only while $B$ fits in L3; the speed-up
+over the baseline did grow with $n$ and was higher at the power-of-two sizes than at their
+neighbours, but clearly so only at $n=1024$ ($26\times$ for both kernels, against $11$--$24\times$
+at $n=768$ and $1536$). Elsewhere the effect was smaller (ikj at $n=512$: $13.5\times$ against
+$10.9\times$ at $n=768$) or absent (blocked at $n=512$ and $2048$). H2 is supported: blocking was the fastest kernel from $n=768$, and ikj was as fast as
 blocking for $n\le1024$.
 
 The transposed kernel removes the strided access too, but stays at about 0.8\,ns per multiply-add.
@@ -804,7 +813,8 @@ On this machine and with these settings:
         the rest.
   \item \textbf{CSR} beat the fastest dense kernel by more than two orders of magnitude at
         densities $\le1\,\%$ and by $1.6$--$2\times$ at 25\,\%, and lost at 50\,\% and above;
-        conversions mattered only below about 1\,\%.
+        the conversions dominated the CSR time up to 1--2\,\% density but never removed
+        its advantage.
   \item The \textbf{sparse advantage was limited by fill-in and structure}, not by the input
         density alone: products of sparse matrices became dense quickly, and inputs with the same
         density but a banded structure ran up to $5.6\times$ faster.

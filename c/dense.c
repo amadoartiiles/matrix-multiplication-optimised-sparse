@@ -26,7 +26,7 @@
 
 /* ---------- kernels: the timed region is exactly one of these calls ---------- */
 
-/* Baseline: Assignment 1 kernel, copied without changes. */
+/* Baseline: Assignment 1 kernel (multiply), body copied without changes. */
 static double *mm_ijk(const double *A, const double *B, int n) {
     double *C = (double *)calloc((size_t)n * n, sizeof(double));
     if (C == NULL) return NULL;
