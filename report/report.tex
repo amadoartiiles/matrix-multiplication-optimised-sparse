@@ -60,12 +60,20 @@
 % Lists
 \setlist{itemsep=3pt,parsep=0pt,topsep=4pt}
 
+% Floats: let large figures and tables share pages with text instead of leaving gaps
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
+
 % ---------------------------------------------------------------------
 % Boxes
 \newtcolorbox{infobox}[1][]{enhanced,breakable,colback=accentlight,colframe=accent,
   boxrule=0pt,leftrule=3pt,arc=0pt,left=10pt,right=10pt,top=6pt,bottom=6pt,
   before upper={\setlength{\parskip}{5pt}},#1}
-\newtcolorbox{titledbox}[1]{enhanced,colback=accentlight,colframe=accent,
+\newtcolorbox{titledbox}[1]{enhanced,breakable,colback=accentlight,colframe=accent,
   boxrule=0.6pt,arc=2pt,left=10pt,right=10pt,top=6pt,bottom=6pt,
   title={\bfseries #1},fonttitle=\normalsize,coltitle=white,
   before upper={\setlength{\parskip}{5pt}}}
@@ -233,7 +241,11 @@ element-wise, with $\gamma_n=nu/(1-nu)$ and $u=2^{-53}$ \cite[Sec.~3.5]{higham}.
 All methods are written in C11 by the author and compiled with the same flags; none calls a
 library. Figure~\ref{lst:kernels} shows the dense kernels and Figure~\ref{lst:csr} the CSR kernel.
 
-\begin{figure}[H]
+\par\addvspace{4pt}
+\captionof{figure}{The four dense kernels (abridged from \texttt{c/dense.c}). Each allocates and
+zero-initialises $C$ with \texttt{calloc} inside the timed region.}
+\label{lst:kernels}
+\nopagebreak\vspace{2pt}
 \begin{codebox}{C}{ijk (baseline) \textperiodcentered{} c/dense.c, body copied unchanged from Assignment 1}{mijk}
 for (int i = 0; i < n; i++)
     for (int j = 0; j < n; j++) {
@@ -275,10 +287,7 @@ for (int ii = 0; ii < n; ii += b)
             C[(size_t)i*n + j] += a * B[(size_t)k*n + j];
         }
 \end{codebox}
-\caption{The four dense kernels (abridged from \texttt{c/dense.c}). Each allocates and
-zero-initialises $C$ with \texttt{calloc} inside the timed region.}
-\label{lst:kernels}
-\end{figure}
+\par\addvspace{6pt}
 
 \concept{Identical arithmetic}
 In every dense kernel each $C_{ij}$ starts at $0$ and receives the products $A_{ik}B_{kj}$ in
@@ -448,7 +457,7 @@ $b=64$ that had been fixed in the configuration before the main runs. A $64\time
 of $B$ takes 32\,KB, the size of the L1 data cache; one row segment of $C$ (512\,B) and of $B$ stay
 in L1 while the tile is reused from L2.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Pre-study: median time of the blocked kernel for each tile size $b$ (5 repetitions;
 fastest per row in bold). Raw data: \texttt{results/tuning/block\_sweep.csv}.}
@@ -462,7 +471,7 @@ kernels. The baseline needed 182\,s at $n=3072$ and did not finish one multiplic
 300\,s budget at $n=4096$; the three optimised kernels completed every size. Blocking was the
 fastest method for $n\ge768$ and took 13.9\,s at $n=4096$.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Part A: median time per multiplication and relative IQR (IQR/median, \%) over five
 repetitions. The large IQR of the ikj and blocked kernels at $n=512$--$1024$ (up to 35\,\%) comes
@@ -472,7 +481,7 @@ other three (e.g.\ blocked, $n=768$: 77--112\,ms).}
 \resizebox{\linewidth}{!}{\DenseTimeTable}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{minipage}[t]{0.495\linewidth}\centering
 \includegraphics[width=\linewidth]{../results/figures/fig_dense_time.png}
@@ -503,7 +512,7 @@ grows with $n$ for the blocked kernel, from $2.8\times$ at $n=64$ to $31.8\times
 has a local peak at $n=1024$ ($26\times$ for ikj and blocked), where the baseline suffers the
 conflict misses of power-of-two sizes.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Part A: speed-up over the ijk baseline (ratio of medians), throughput
 $2n^3/\text{median}$, and peak working set of the process. The peak working set of ikj and
@@ -529,7 +538,7 @@ vectorisation the blocked kernel is still $18.5\times$ faster than the baseline 
 (49.0\,s / 2.65\,s): most of its gain comes from the memory-access pattern, and SIMD adds a
 factor of about 1.6 on top of it.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Supplementary: median time with and without loop vectorisation (same flags otherwise;
 builds alternated per configuration; 5 repetitions). Raw data:
@@ -549,7 +558,7 @@ the same work for any density, so their time is flat. The CSR time grows with de
 25\,\% and slower at 50\,\% and 100\,\%, at both sizes; with the conversions included the
 crossover stays between 25\,\% and 50\,\%.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Part B, uniform inputs: nonzeros, output density, median CSR multiplication time, CSR time
 including the conversions (dense$\to$CSR of $A$ and $B$ plus CSR$\to$dense of $C$, summed
@@ -559,7 +568,7 @@ CSR multiplication (both medians). nnz(B) equals nnz(A) by construction.}
 \resizebox{\linewidth}{!}{\SparseTable}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.97\linewidth]{../results/figures/fig_sparse_time.png}
 \caption{Part B: median time per multiplication against input density, for the same logical
@@ -575,7 +584,7 @@ take 13--420$\times$ longer than the multiplication itself, yet CSR including co
 $63\times$ ($n=1024$) and $93\times$ ($n=2048$) faster than the blocked kernel at 0.1\,\%. From
 2--5\,\% on the multiplication dominates.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Part B, uniform inputs: CSR cost breakdown (medians), time per scalar product
 ($\text{multiply time}/W$, with $W=\sum_k\mathrm{nnz}(A_{:,k})\,\mathrm{nnz}(B_{k,:})$), peak
@@ -593,7 +602,7 @@ nonzeros give a product with 55.9\,\% nonzeros, and from 5\,\% on $C$ is practic
 measured output densities follow the model $1-(1-d^2)^n$ closely, and they also depend on $n$: the same
 1\,\% input density gives 9.7\,\% output density at $n=1024$ and 18.5\,\% at $n=2048$.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{minipage}[t]{0.495\linewidth}\centering
 \includegraphics[width=\linewidth]{../results/figures/fig_sparse_fill.png}
@@ -622,7 +631,7 @@ grows with density much faster than that of the inputs. The CSR multiplication n
 the blocked kernel up to 25\,\% density at both sizes (23 against 29\,MB at $n=1024$), about the
 same at 50\,\%, and more at 100\,\% density, where CSR stores 12 bytes per entry against 8.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.62\linewidth]{../results/figures/fig_sparse_memory.png}
 \caption{Peak working set of the CSR multiplication alone (supplementary run without conversions)
@@ -637,7 +646,7 @@ products are 5--14$\times$ sparser, because a product of two bands is again a ba
 multiplication is 2.1--5.6$\times$ faster (1.5--2.9\,ns per product instead of 4.6--9.2\,ns),
 because the rows of $B$ that are combined touch neighbouring columns of the accumulator.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Part B, $n=2048$: uniform versus banded inputs with the same density and nnz.
 ``Products'' is $W=\sum_k \mathrm{nnz}(A_{:,k})\,\mathrm{nnz}(B_{k,:})$.}
@@ -654,7 +663,7 @@ three dense matrices would need 25.8\,GB. At 1\,\% density the output fills in (
 $n=16384$, 216 million nonzeros, 2.7\,GB) and the CSR run at $n=32768$ was stopped when it
 exceeded the 4\,GB budget; the fill-in model predicts about $10^9$ output nonzeros (12\,GB).
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Part B beyond the dense budget (uniform inputs). The CSR peak working set at $n=4096$
 includes the dense buffers of the conversion timing (conversions were timed only for
@@ -663,7 +672,7 @@ $n\le4096$). ``memory limit'' at blocked $n=16384$: not attempted, storage model
 \resizebox{\linewidth}{!}{\LargeTable}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.62\linewidth]{../results/figures/fig_sparse_large.png}
 \caption{Median time per multiplication of CSR (0.1\,\% and 1\,\% density) and of the blocked
@@ -674,7 +683,7 @@ kernel (0.1\,\%) up to the largest size that fits the budgets.}
 \concept{Limits reached}
 Table~\ref{tab:limits} lists every configuration that hit a budget (\texttt{results/summary/limits.csv}).
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Largest completed size per method and the limit that stopped it.}
 \label{tab:limits}
@@ -704,6 +713,7 @@ run, and the remaining configurations were run with a \texttt{--resume} option t
 ones. Each configuration runs in its own process, so completed results were not affected.
 
 % =====================================================================
+\FloatBarrier
 \section{Discussion}
 
 \concept{Part A: what makes the optimised kernels faster}
@@ -797,7 +807,6 @@ $n=32768$ at 0.1\,\% density but not at 1\,\%.
 \end{itemize}
 
 % =====================================================================
-\Needspace{22\baselineskip}
 \section{Conclusions}
 \begin{titledbox}{Key findings}
 On this machine and with these settings:
@@ -832,7 +841,7 @@ sparse matrices with irregular structure.
 \section*{Reproducibility materials}
 Repository: \url{\RepoURL}. It contains:
 \begin{itemize}[leftmargin=1.4em]
-  \item source code: \texttt{c/common.h}, \texttt{c/dense.c} (baseline copied unchanged from
+  \item source code: \texttt{c/common.h}, \texttt{c/dense.c} (baseline kernel body copied unchanged from
         Assignment~1, \url{\AOneURL}), \texttt{c/sparse.c};
   \item configuration: \texttt{config/benchmark\_config.json} (sizes, densities, seeds,
         repetitions, budgets, flags, tile size);
@@ -852,7 +861,7 @@ described above; the raw data are included. The author reviewed the code, the re
 
 % =====================================================================
 \begin{thebibliography}{99}\small\sloppy
-\setlength{\itemsep}{3pt}
+\setlength{\itemsep}{1pt}
 \bibitem{golub} G.~H. Golub and C.~F. Van~Loan, \emph{Matrix Computations}, 4th ed. Baltimore, MD, USA: Johns Hopkins Univ. Press, 2013.
 \bibitem{drepper} U.~Drepper, ``What every programmer should know about memory,'' Red Hat, Inc., 2007. [Online]. Available: \url{https://people.freebsd.org/~lstewart/articles/cpumemory.pdf}
 \bibitem{lam} M.~S. Lam, E.~E. Rothberg, and M.~E. Wolf, ``The cache performance and optimizations of blocked algorithms,'' in \emph{Proc. ASPLOS-IV}, 1991, pp.~63--74.
