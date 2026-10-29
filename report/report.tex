@@ -88,7 +88,7 @@
   showstringspaces=false, columns=fullflexible, keepspaces=true,
   aboveskip=0pt, belowskip=0pt, xleftmargin=14pt
 }
-\newtcblisting{codebox}[3]{enhanced,listing only,
+\newtcblisting{codebox}[3]{enhanced,breakable,listing only,
   listing options={style=kernel,language=#1},
   colback=codebg,colframe=#3,boxrule=0.6pt,leftrule=3pt,arc=2pt,
   left=4pt,right=6pt,top=4pt,bottom=4pt,
@@ -132,24 +132,16 @@ sparse representation pay off?}
 \vspace{6pt}
 \begin{infobox}
 {\color{accent}\bfseries Abstract}\par\vspace{3pt}
-Taking the validated C i-j-k kernel of Assignment~1 as the baseline, this study measures three
-sequential dense optimisations (i-k-j loop reordering, a transposed copy of $B$ and $64\times64$
-cache blocking) and an own CSR sparse multiplication (Gustavson's row-wise algorithm) on one laptop
-(AMD Ryzen~7 7730U, Windows~11, GCC~16 \texttt{-O2}), with five measured repetitions per
-configuration and fixed budgets of 300\,s and 4\,GB. All dense kernels returned bitwise-identical
-results, and all 97 validated configurations were within a rigorous error bound. Blocking was the fastest dense
-method, kept a constant cost of about 0.2\,ns per multiply-add up to $n=4096$ and was
-$27.8\times$ faster than the baseline at $n=2048$ and $31.8\times$ at $n=3072$; the baseline
-exceeded the time budget at $n=4096$. Loop reordering matched blocking until $B$ outgrew the
-16\,MB L3 cache and then became twice as slow; SIMD vectorisation contributed a factor of
-1.25--1.7, the access pattern the rest. On uniformly random inputs, CSR beat the blocked kernel
-by more than two orders of magnitude at densities up to 1\,\%, by $1.6$--$2\times$ at 25\,\% and
-lost at 50\,\%; the separately timed conversions dominated the CSR time up to 1--2\,\% density
-but never removed its advantage. CSR reached $n=32768$ at
-0.1\,\% density in 0.3\,s, where dense storage alone would need 26\,GB. The advantage depended on
-the output fill-in and the nonzero structure, not on input density alone: banded inputs with the
-same density and the same number of scalar products ran 2--5.6$\times$ faster than uniform ones.
-The conclusions apply to these implementations, inputs and machine only.
+Using the validated C i-j-k kernel of Assignment~1 as the baseline, this study measures three
+sequential dense optimisations (loop reordering, a transposed copy of $B$, cache blocking) and an
+own CSR sparse multiplication on one laptop, with five repetitions per configuration and budgets
+of 300\,s and 4\,GB. All results were validated against a rigorous error bound. Cache blocking
+was the fastest dense method, at a constant 0.2\,ns per multiply-add and $31.8\times$ the
+baseline at $n=3072$; loop reordering matched it only while $B$ fit in the L3 cache, and most
+of the gain came from the access pattern rather than SIMD. On matched uniform inputs, CSR beat
+blocking by more than $100\times$ at densities up to 1\,\%, lost from 50\,\%, and reached
+$n=32768$ at 0.1\,\%. Its advantage depended on output fill-in and nonzero structure, not on
+input density alone. The conclusions apply to these implementations, inputs and machine only.
 
 \vspace{4pt}
 {\small\textbf{Keywords:} matrix multiplication, loop reordering, cache blocking, vectorisation,
@@ -284,8 +276,7 @@ for (int ii = 0; ii < n; ii += b)
         for (int k = kk; k < min(kk+b, n); k++) {
           const double a = A[(size_t)i*n + k];
           for (int j = jj; j < min(jj+b, n); j++)
-            C[(size_t)i*n + j] += a * B[(size_t)k*n + j];
-        }
+            C[(size_t)i*n + j] += a * B[(size_t)k*n + j];  }
 \end{codebox}
 \par\addvspace{6pt}
 
@@ -358,7 +349,7 @@ Table~\ref{tab:env} lists the environment; it is the machine of Assignment~1, an
 \label{tab:env}
 \begin{tabularx}{\linewidth}{@{}>{\bfseries\color{accent}}l X@{}}
 \toprule
-CPU & AMD Ryzen 7 7730U (Zen 3), 8 physical cores / 16 logical processors; 32\,KB L1d and 512\,KB L2 per core, 16\,MB L3 \\
+CPU & AMD Ryzen 7 7730U (Zen 3), 8 physical cores / 16 logical processors; 32\,KB L1d and 512\,KB L2 per core \cite{amd}, 16\,MB L3 \\
 Memory, OS & 16 GB RAM; Windows 11 Home 10.0.26300; HP Laptop 15-fc0xxx; on AC power, ``Balanced'' power plan \\
 Compiler & GCC 16.2.0 (MinGW-w64 UCRT); \texttt{-O2 -std=c11 -Wall -Wextra} (no \texttt{-march}, no fast-math); vectorised loops listed in \texttt{results/vectorization\_report.txt} \\
 Threads & every kernel is sequential (one thread); no numerical library inside the timed code \\
@@ -390,7 +381,10 @@ $n$ with a 2\,s pause between processes.
 As in Assignment~1, the driver records the Windows peak working set of the process
 (\texttt{Peak\-Working\-Set\-Size}, read with psutil \cite{psutil}), sampled every 20\,ms. We compare it with
 analytical storage models: $24n^2$ bytes for the dense $A$, $B$, $C$ ($32n^2$ for
-\texttt{transposed}) and $8(n+1)+12z$ bytes per CSR matrix.
+\texttt{transposed}) and $8(n+1)+12z$ bytes per CSR matrix. The peak working set is a per-process
+quantity, so the main runs give one value per configuration, covering the warm-up and all five
+repetitions; the memory of the CSR multiplication alone was measured in five separate processes
+per configuration (median and IQR reported).
 
 \concept{Budgets (declared before the large runs)}
 300\,s per multiplication and 4\,GB peak working set per process. A configuration that exceeds a
@@ -437,25 +431,22 @@ checksum.
 
 \FloatBarrier
 \subsection{Correctness}
-All self tests passed (\texttt{results/selftest.txt}). All 97 completed configurations satisfy
-the tolerance; the largest error was 1.2\,\% of the bound (\texttt{results/validation.csv}). At
-every size the four dense kernels are \emph{bitwise identical} to each other, and in Part~B the
-CSR result has exactly the same values and the same nnz as the dense kernels on the same input. For
-$n\ge8192$ the CSR outputs were compared element-wise with SciPy ($n=8192$) or, where no dump was
-kept ($n\ge16384$), by nnz and checksum (relative difference $\le9\times10^{-13}$). Every
-configuration printed the same checksum in all its repetitions. Differences in runtime are
-therefore due to the order of the operations and the storage format, not to different arithmetic.
+All self tests passed (\texttt{results/selftest.txt}), and all 97 completed configurations satisfy
+the tolerance, with the largest error at 1.2\,\% of the bound (\texttt{results/validation.csv}).
+The four dense kernels are \emph{bitwise identical} at every size, and the CSR result has the same
+values and nnz as the dense kernels on the same input. Without a dump ($n\ge16384$), CSR outputs
+were checked against SciPy by nnz and checksum (relative difference $\le9\times10^{-13}$). All
+repetitions of a configuration printed the same checksum, so runtime differences come from the
+order of operations and the storage format, not from different arithmetic.
 
 \FloatBarrier
 \subsection{Part A: dense methods}
 
 \concept{Tile size (pre-study)}
-Table~\ref{tab:block} shows the tile-size sweep. $b=64$ was fastest at $n=1024$ and $2048$ and
-within 3.5\,\% of the best ($b=128$) at $n=512$, so it was used for all runs. The sweep shown was
-repeated with the same protocol, on AC power, after the main campaign; it confirms the value
-$b=64$ that had been fixed in the configuration before the main runs. A $64\times64$ tile
-of $B$ takes 32\,KB, the size of the L1 data cache; one row segment of $C$ (512\,B) and of $B$ stay
-in L1 while the tile is reused from L2.
+$b=64$ was fastest at $n=1024$ and $2048$ and within 3.5\,\% of the best at $n=512$
+(Table~\ref{tab:block}). The sweep shown was repeated with the same protocol after the main
+campaign and confirms the value fixed before it. A $64\times64$ tile of $B$ (32\,KB) matches the
+L1 data cache.
 
 \begin{table}[!htbp]
 \centering
@@ -466,17 +457,21 @@ fastest per row in bold). Raw data: \texttt{results/tuning/block\_sweep.csv}.}
 \end{table}
 
 \concept{Runtime}
-Table~\ref{tab:densetime} and Figure~\ref{fig:densetime} give the median runtime of the four
-kernels. The baseline needed 182\,s at $n=3072$ and did not finish one multiplication within the
-300\,s budget at $n=4096$; the three optimised kernels completed every size. Blocking was the
-fastest method for $n\ge768$ and took 13.9\,s at $n=4096$.
+Table~\ref{tab:densetime} and Figure~\ref{fig:densetime} give the runtimes. The baseline needed
+182\,s at $n=3072$ and exceeded the 300\,s budget at $n=4096$; the optimised kernels completed
+every size, and blocking was the fastest from $n=768$ (13.9\,s at $n=4096$). The cost per
+multiply-add (Figure~\ref{fig:densetime}, right) separates three behaviours: \textbf{ijk} rises
+from 0.55 to 6.3\,ns, as in Assignment~1; \textbf{blocked} stays at 0.19--0.23\,ns (about
+10\,GFLOP/s) at every size; \textbf{ikj} matches blocked up to $n=1024$ and then doubles
+(0.40--0.44\,ns), while \textbf{transposed} rises slowly from 0.6 to 0.79\,ns. The speed-up of
+blocking over the baseline grows from $2.8\times$ at $n=64$ to $31.8\times$ at $n=3072$
+(Table~\ref{tab:speedup}).
 
 \begin{table}[!htbp]
 \centering
 \caption{Part A: median time per multiplication and relative IQR (IQR/median, \%) over five
-repetitions. The large IQR of the ikj and blocked kernels at $n=512$--$1024$ (up to 35\,\%) comes
-from runs shorter than 0.3\,s in which two of the five repetitions were 20--45\,\% slower than the
-other three (e.g.\ blocked, $n=768$: 77--112\,ms).}
+repetitions. The large IQR of ikj and blocked at $n=512$--$1024$ (up to 35\,\%) comes from runs
+shorter than 0.3\,s in which two of the five repetitions were 20--45\,\% slower than the others.}
 \label{tab:densetime}
 \resizebox{\linewidth}{!}{\DenseTimeTable}
 \end{table}
@@ -495,48 +490,27 @@ pure cubic growth.}
 \label{fig:densetime}
 \end{figure}
 
-Figure~\ref{fig:densetime} (right) shows three different behaviours:
-\begin{itemize}[leftmargin=1.4em]
-  \item \textbf{ijk} cost rises from 0.55 to 6.3\,ns per multiply-add, the pattern of
-        Assignment~1. At $n=1024$ the median, 5.93\,s, is 8\,\% above the 5.48\,s of
-        Assignment~1.
-  \item \textbf{blocked} stays at 0.19--0.23\,ns (about 10\,GFLOP/s) from $n=64$ to $4096$: its
-        runtime grows exactly as $n^3$.
-  \item \textbf{ikj} costs the same as blocked up to $n=1024$, then about twice as much
-        (0.40--0.44\,ns) from $n=1536$ on. \textbf{transposed} rises only slowly, from 0.6 to
-        0.79\,ns, but is 1.8--3.7$\times$ slower than ikj at every size.
-\end{itemize}
-
-Table~\ref{tab:speedup} gives the speed-ups and the achieved GFLOP/s. The speed-up over the baseline
-grows with $n$ for the blocked kernel, from $2.8\times$ at $n=64$ to $31.8\times$ at $n=3072$, and
-has a local peak at $n=1024$ ($26\times$ for ikj and blocked), where the baseline suffers the
-conflict misses of power-of-two sizes.
-
 \begin{table}[!htbp]
 \centering
 \caption{Part A: speed-up over the ijk baseline (ratio of medians), throughput
-$2n^3/\text{median}$, and peak working set of the process. The peak working set of ikj and
-blocked equals that of ijk within 1\,MB.}
+$2n^3/\text{median}$, and peak working set of the process (one value per process). The peak
+working set of ikj and blocked equals that of ijk within 1\,MB.}
 \label{tab:speedup}
 \resizebox{\linewidth}{!}{\DenseSpeedupTable}
 \end{table}
 
 \concept{Memory}
-The three in-place kernels use the same memory: their peak working set follows the storage
-model $24n^2$ bytes plus about 4\,MB of process baseline (231\,MB at $n=3072$ against 226\,MB
-predicted). The transposed kernel needs one more $n^2$ array, $32n^2$ bytes (541\,MB at $n=4096$
-against 537\,MB). Under the 4\,GB budget, the storage model limits any of these dense kernels to
-$n\le12\,900$ (in-place) and $n\le11\,180$ (transposed); the time budget limits the baseline to
-$n=3072$ and the blocked kernel, extrapolating its $n^3$ growth, to about $n\approx11\,400$.
+The in-place kernels follow the storage model $24n^2$ bytes plus about 4\,MB of process baseline
+(231\,MB at $n=3072$ against 226\,MB predicted); transposed needs $32n^2$ (541\,MB at $n=4096$).
+Under the budgets, storage limits these kernels to $n\le12\,900$ ($n\le11\,180$ for transposed),
+and time limits the baseline to $n=3072$ and blocking, extrapolating its $n^3$ growth, to about
+$n\approx11\,400$.
 
 \concept{Supplementary: vectorisation versus access pattern}
-Table~\ref{tab:vec} compares the same source compiled with and without
-\texttt{-fno-tree-vectorize}; the checksums were identical in all runs. SSE2 vectorisation made
-ikj 1.25--1.65$\times$ faster and blocked 1.6--1.7$\times$ faster, and had no effect on the
-transposed kernel, whose inner loop is a reduction that GCC does not vectorise. Without
-vectorisation the blocked kernel is still $18.5\times$ faster than the baseline at $n=2048$
-(49.0\,s / 2.65\,s): most of its gain comes from the memory-access pattern, and SIMD adds a
-factor of about 1.6 on top of it.
+With identical checksums, SSE2 vectorisation made ikj 1.25--1.65$\times$ and blocked
+1.6--1.7$\times$ faster, and had no effect on transposed, whose reduction GCC does not vectorise
+(Table~\ref{tab:vec}). Without vectorisation, blocking is still $18.5\times$ faster than the
+baseline at $n=2048$.
 
 \begin{table}[!htbp]
 \centering
@@ -547,16 +521,12 @@ builds alternated per configuration; 5 repetitions). Raw data:
 \small\VecTable
 \end{table}
 
-\FloatBarrier
 \subsection{Part B: sparse versus dense}
 
 \concept{Matched comparison}
-Table~\ref{tab:sparse} and Figure~\ref{fig:sparsetime} compare the CSR product with the blocked
-kernel, and at $n=1024$ also with the baseline, on the same uniform inputs. The dense kernels do
-the same work for any density, so their time is flat. The CSR time grows with density, from
-8.8\,$\mu$s to 1.51\,s at $n=1024$. CSR was faster than the blocked kernel at every density up to
-25\,\% and slower at 50\,\% and 100\,\%, at both sizes; with the conversions included the
-crossover stays between 25\,\% and 50\,\%.
+On the same uniform inputs (Table~\ref{tab:sparse}, Figure~\ref{fig:sparsetime}) the dense time is
+flat while the CSR time grows with density. CSR was faster than the blocked kernel up to 25\,\%
+density and slower at 50\,\% and 100\,\%, at both sizes, with or without the conversions.
 
 \begin{table}[!htbp]
 \centering
@@ -577,12 +547,11 @@ inputs. The dotted line adds the separately measured conversion times to the CSR
 \end{figure}
 
 \concept{Conversion costs}
-Table~\ref{tab:sparsecost} separates the costs. Converting $A$ and $B$ to CSR scans $2n^2$ dense
-entries, so it costs at least 2.7\,ms at $n=1024$ and grows with the number of nonzeros written
-(20\,ms at 50\,\%); converting $C$ back costs 1--2.6\,ms. At 0.1--0.5\,\% density the conversions
-take 13--420$\times$ longer than the multiplication itself, yet CSR including conversions is still
-$63\times$ ($n=1024$) and $93\times$ ($n=2048$) faster than the blocked kernel at 0.1\,\%. From
-2--5\,\% on the multiplication dominates.
+Converting $A$ and $B$ to CSR scans $2n^2$ entries (2.7--20\,ms at $n=1024$) and converting $C$
+back costs 1--2.6\,ms (Table~\ref{tab:sparsecost}). At 0.1--0.5\,\% density the conversions take
+13--420$\times$ longer than the multiplication, yet CSR with conversions is still $63\times$
+($n=1024$) and $93\times$ ($n=2048$) faster than blocking at 0.1\,\%; from 2--5\,\% on the
+multiplication dominates.
 
 \begin{table}[!htbp]
 \centering
@@ -590,61 +559,49 @@ $63\times$ ($n=1024$) and $93\times$ ($n=2048$) faster than the blocked kernel a
 ($\text{multiply time}/W$, with $W=\sum_k\mathrm{nnz}(A_{:,k})\,\mathrm{nnz}(B_{k,:})$), peak
 working set, and the analytical CSR storage of $A$, $B$ and $C$.
 $^\ast$Process of the main run, which after the multiplications also expands $A$ and $B$ to
-dense arrays to time the conversions; ``CSR only'' is a supplementary run of the multiplication
-alone (\texttt{results/supplementary/sparse\_memory.csv}).}
+dense arrays to time the conversions (one value per process). ``CSR only'': median over five
+separate processes of the multiplication alone (\texttt{results/supplementary/sparse\_memory.csv}).}
 \label{tab:sparsecost}
 \resizebox{\linewidth}{!}{\SparseCostTable}
 \end{table}
 
-\concept{Output fill-in}
-The output is much denser than the inputs (Figure~\ref{fig:fill}). At $n=2048$, inputs with 2\,\%
-nonzeros give a product with 55.9\,\% nonzeros, and from 5\,\% on $C$ is practically dense. The
-measured output densities follow the model $1-(1-d^2)^n$ closely, and they also depend on $n$: the same
-1\,\% input density gives 9.7\,\% output density at $n=1024$ and 18.5\,\% at $n=2048$.
+\concept{Output fill-in and cost per product}
+The product is much denser than the inputs and its density depends on $n$ (Figure~\ref{fig:fill},
+left): 1\,\% inputs give 9.7\,\% output density at $n=1024$ and 18.5\,\% at $n=2048$, and from
+5\,\% on $C$ is practically dense, following the model $1-(1-d^2)^n$. The CSR time per scalar
+product (right) is 4--12\,ns at densities $\le5\,\%$ and falls to 1.4--1.7\,ns at high density,
+still about 7$\times$ the 0.21\,ns of a blocked multiply-add.
 
 \begin{figure}[!htbp]
 \centering
-\begin{minipage}[t]{0.495\linewidth}\centering
-\includegraphics[width=\linewidth]{../results/figures/fig_sparse_fill.png}
-\end{minipage}\hfill
-\begin{minipage}[t]{0.495\linewidth}\centering
-\includegraphics[width=\linewidth]{../results/figures/fig_sparse_per_product.png}
-\end{minipage}
+\includegraphics[width=0.43\linewidth]{../results/figures/fig_sparse_fill.png}\hfill
+\includegraphics[width=0.55\linewidth]{../results/figures/fig_sparse_per_product.png}
 \caption{Left: density of the product against the input density, with the model for independent
 uniform inputs. Right: CSR time per scalar product against the number of products $W$; the
 horizontal lines are the blocked kernel's time per multiply-add (median$/n^3$).}
 \label{fig:fill}
 \end{figure}
 
-\concept{Cost per scalar product}
-The CSR time per scalar product (Figure~\ref{fig:fill}, right) is 4--12\,ns while the products
-per row are few (density $\le5\,\%$) and falls to 1.4--1.7\,ns at high density, where each row of
-$C$ receives many products into an accumulator that stays in cache. Even at its best, a CSR
-product costs about 7$\times$ more than a multiply-add of the blocked kernel (0.21\,ns), because
-each one needs an index load, an indirect access to the accumulator and a marker test, and it is
-not vectorised.
-
 \concept{Memory}
-Figure~\ref{fig:sparsemem} shows the peak working set. The CSR multiplication alone follows the
-storage model of $A$, $B$ and $C$ plus the 4\,MB process baseline; because $C$ fills in, its memory
-grows with density much faster than that of the inputs. The CSR multiplication needed less memory than
-the blocked kernel up to 25\,\% density at both sizes (23 against 29\,MB at $n=1024$), about the
-same at 50\,\%, and more at 100\,\% density, where CSR stores 12 bytes per entry against 8.
+The CSR multiplication alone follows the storage model of $A$, $B$ and $C$ plus the 4\,MB process
+baseline (Figure~\ref{fig:sparsemem}); across its five processes the peak working set varied by
+at most 12\,KB (0.2\,\%). Because $C$ fills in, CSR needed less memory than the blocked kernel up to 25\,\% density,
+about the same at 50\,\%, and more at 100\,\%, where it stores 12 bytes per entry against 8.
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.62\linewidth]{../results/figures/fig_sparse_memory.png}
-\caption{Peak working set of the CSR multiplication alone (supplementary run without conversions)
-and of the blocked kernel on the same inputs, with the CSR storage model of $A$, $B$ and $C$.}
+\caption{Peak working set of the CSR multiplication alone (median of five processes, without
+conversions) and of the blocked kernel on the same inputs, with the CSR storage model of $A$, $B$
+and $C$.}
 \label{fig:sparsemem}
 \end{figure}
 
 \concept{Structure}
-Table~\ref{tab:structure} compares banded and uniform inputs with the same $n=2048$, density and
-number of nonzeros. Their numbers of scalar products differ by less than 0.5\,\%, but the banded
-products are 5--14$\times$ sparser, because a product of two bands is again a band, and the CSR
-multiplication is 2.1--5.6$\times$ faster (1.5--2.9\,ns per product instead of 4.6--9.2\,ns),
-because the rows of $B$ that are combined touch neighbouring columns of the accumulator.
+Banded and uniform inputs with the same $n=2048$, density and nnz have the same number of scalar
+products within 0.5\,\% (Table~\ref{tab:structure}), but the banded products are 5--14$\times$
+sparser and the CSR multiplication is 2.1--5.6$\times$ faster (1.5--2.9 instead of
+4.6--9.2\,ns per product).
 
 \begin{table}[!htbp]
 \centering
@@ -655,13 +612,11 @@ because the rows of $B$ that are combined touch neighbouring columns of the accu
 \end{table}
 
 \concept{Largest feasible sizes}
-Table~\ref{tab:large} and Figure~\ref{fig:large} extend the comparison beyond the dense budget.
-At 0.1\,\% density the blocked kernel took 112\,s at $n=8192$ and was not attempted at
-$n=16384$: its storage model ($24n^2=6.4$\,GB) exceeds the 4\,GB budget. CSR multiplied the same
-$n=8192$ matrices in 4.6\,ms and reached $n=32768$ in 0.30\,s with 447\,MB, a size at which the
-three dense matrices would need 25.8\,GB. At 1\,\% density the output fills in (80.6\,\% at
-$n=16384$, 216 million nonzeros, 2.7\,GB) and the CSR run at $n=32768$ was stopped when it
-exceeded the 4\,GB budget; the fill-in model predicts about $10^9$ output nonzeros (12\,GB).
+At 0.1\,\% density the blocked kernel took 112\,s at $n=8192$ and was not attempted at $n=16384$,
+whose storage model (6.4\,GB) exceeds the budget; CSR multiplied the same $n=8192$ inputs in
+4.6\,ms and reached $n=32768$ in 0.30\,s with 447\,MB (Table~\ref{tab:large},
+Figure~\ref{fig:large}). At 1\,\% density the output fills in (80.6\,\% at $n=16384$, 2.7\,GB),
+and the CSR run at $n=32768$ exceeded the 4\,GB budget. Table~\ref{tab:limits} summarises the limits.
 
 \begin{table}[!htbp]
 \centering
@@ -669,7 +624,7 @@ exceeded the 4\,GB budget; the fill-in model predicts about $10^9$ output nonzer
 includes the dense buffers of the conversion timing (conversions were timed only for
 $n\le4096$). ``memory limit'' at blocked $n=16384$: not attempted, storage model above 4\,GB.}
 \label{tab:large}
-\resizebox{\linewidth}{!}{\LargeTable}
+\resizebox{\linewidth}{!}{\LargeTable}
 \end{table}
 
 \begin{figure}[!htbp]
@@ -680,12 +635,10 @@ kernel (0.1\,\%) up to the largest size that fits the budgets.}
 \label{fig:large}
 \end{figure}
 
-\concept{Limits reached}
-Table~\ref{tab:limits} lists every configuration that hit a budget (\texttt{results/summary/limits.csv}).
-
 \begin{table}[!htbp]
 \centering
-\caption{Largest completed size per method and the limit that stopped it.}
+\caption{Largest completed size per method and the limit that stopped it
+(\texttt{results/summary/limits.csv}).}
 \label{tab:limits}
 \small
 \begin{tabularx}{\linewidth}{@{}l l r X@{}}
@@ -702,108 +655,83 @@ CSR & uniform 1\,\% & 16384 & $n=32768$: peak working set $>$ 4\,GB (output fill
 \end{table}
 
 \concept{Deviations from the plan}
-Two events interrupted the campaign. (i) During the first run of ijk at $n=3072$ the laptop
-entered Modern Standby for seven minutes (Windows Kernel-Power events 506/507); that run and the
-following $n=4096$ run were discarded (\texttt{results/raw/excluded.csv}), a keep-awake request
-was added, and both configurations were rerun. (ii) The benchmarking session was stopped because
-the laptop ran low on system memory while the driver attempted the blocked kernel at $n=16384$
-(6.4\,GB of dense storage, with other applications open); that attempt was not recorded, the driver
-was then given a check of the dense storage model against the budget before launching a dense
-run, and the remaining configurations were run with a \texttt{--resume} option that skips completed
-ones. Each configuration runs in its own process, so completed results were not affected.
+(i) During the first ijk run at $n=3072$ the laptop entered Modern Standby for seven minutes
+(Windows Kernel-Power events 506/507); that run and the following $n=4096$ run were discarded
+(\texttt{results/raw/excluded.csv}) and rerun with a keep-awake request. (ii) The session was
+stopped when the laptop ran low on memory during the unrecorded attempt of blocked at $n=16384$;
+the driver then gained a pre-launch check of the dense storage model against the budget, and the
+remaining configurations were run with \texttt{--resume}. Each configuration runs in its own
+process, so completed results were not affected.
 
 % =====================================================================
 \FloatBarrier
 \section{Discussion}
 
 \concept{Part A: what makes the optimised kernels faster}
-All four kernels do the same arithmetic in the same order for each $C_{ij}$, and the results are
-bitwise identical, so the differences in Table~\ref{tab:densetime} come only from how the
-operations are scheduled. The baseline reads a column of $B$ in its inner loop; as in
-Assignment~1, its cost per multiply-add grows tenfold with $n$. Reordering the loops to i-k-j
-makes the inner loop stream a row of $B$ and a row of $C$ with unit stride and independent
-iterations, which removes the strided access and lets GCC use SSE2 vectors. This is enough to run
-at about 10\,GFLOP/s while $B$ (8\,MB at $n=1024$) fits in the 16\,MB L3 cache. From $n=1536$
-($B$ = 18.9\,MB) every row $i$ streams all of $B$ from DRAM again, and the cost per multiply-add
-doubles. Blocking restricts the inner loops to a $64\times64$ tile of $B$ that is reused for 64
-rows of $C$, so the traffic to memory falls by a factor of about $b$ and the cost per multiply-add
-stays flat up to $n=4096$. H1 is therefore only partly supported: the constant cost per
-multiply-add holds for the blocked kernel, and for ikj only while $B$ fits in L3; the speed-up
-over the baseline did grow with $n$ and was higher at the power-of-two sizes than at their
-neighbours, but clearly so only at $n=1024$ ($26\times$ for both kernels, against $11$--$24\times$
-at $n=768$ and $1536$). Elsewhere the effect was smaller (ikj at $n=512$: $13.5\times$ against
-$10.9\times$ at $n=768$) or absent (blocked at $n=512$ and $2048$). H2 is supported: blocking was the fastest kernel from $n=768$, and ikj was as fast as
-blocking for $n\le1024$.
+Since the results are bitwise identical, the differences come only from how the operations are
+scheduled. Reordering to i-k-j makes the inner loop stream rows of $B$ and $C$ with unit stride
+and independent iterations, which lets GCC use SSE2 vectors; this sustains about 10\,GFLOP/s
+while $B$ (8\,MB at $n=1024$) fits in the 16\,MB L3, but from $n=1536$ ($B=18.9$\,MB)
+every row $i$ streams all of $B$ from DRAM and the cost doubles. Blocking reuses each
+$64\times64$ tile of $B$ for 64 rows of $C$, so memory traffic falls by a factor of about $b$
+\cite{lam} and the cost stays flat up to $n=4096$. The transposed kernel removes the strided
+access too, but its inner loop is a scalar reduction that cannot be vectorised, so it is limited
+by the latency of dependent additions rather than by memory: independent updates mattered more
+than a contiguous layout alone.
 
-The transposed kernel removes the strided access too, but stays at about 0.8\,ns per multiply-add.
-Its inner loop is a reduction into one scalar, so each addition must wait for the previous one,
-and GCC may not vectorise it without reassociation (Table~\ref{tab:vec}). It is limited by the
-latency of the floating-point additions, not by memory. A loop order that allows independent
-updates was therefore more important than a contiguous layout alone. The cost of the
-transposition itself is small: one $n^2$ copy against $n^3$ multiply-adds.
+\textbf{H1} is partly supported: the constant cost holds for blocking, and for ikj only while $B$
+fits in L3; the speed-up grew with $n$, but a clear power-of-two peak appeared only at $n=1024$.
+\textbf{H2} is supported in its prediction but not in its mechanism: blocking was the fastest from
+$n=768$ and ikj was as fast for $n\le1024$, but the threshold was set by the whole matrix $B$
+leaving the L3 cache, not by a row of $B$ leaving L2 as we expected.
 
-The supplementary experiment separates two effects that a single speed-up figure mixes. Of the
-$27.8\times$ of blocking at $n=2048$, a factor of about $18.5$ remains without SIMD, so the access
-pattern accounts for most of the gain. The 1.6$\times$ from vectorisation is below the factor
-of two that 16-byte vectors would allow, which also suggests that memory, not arithmetic, limits
-these kernels. A library such as OpenBLAS would add register blocking, 32-byte AVX2 FMA vectors and
-multiple threads \cite{goto}; these were outside the scope of this sequential study.
+Of the $27.8\times$ of blocking at $n=2048$, about $18.5\times$ remains without SIMD, so the access
+pattern accounts for most of the gain. The 1.6$\times$ from 16-byte vectors is below the
+theoretical factor of two, again suggesting a memory limit. Register blocking, AVX2 FMA vectors
+and threads, as in optimised libraries \cite{goto}, were outside the scope of this sequential study.
 
 \concept{Part B: optimisation effect versus sparse-storage effect}
-A speed-up of CSR over the ijk baseline mixes two effects. At $n=1024$ and 1\,\% density the CSR
-product was $10\,600\times$ faster than the baseline; of this, a factor of 22 is the dense
-optimisation (ijk $\to$ blocked, on the same input) and a factor of 472 is the sparse storage
-(blocked $\to$ CSR). Even at 100\,\% density, CSR was $3.5\times$ faster than the baseline
-because Gustavson's algorithm reads the rows of $B$ in i-k-j order, while it was $6\times$ slower
-than the blocked kernel. All Part~B speed-ups are therefore reported against the blocked kernel,
-the fastest dense method.
+A speed-up of CSR over the baseline mixes two effects: at $n=1024$ and 1\,\% density, the
+$10\,600\times$ gain splits into $22\times$ from dense optimisation (ijk $\to$ blocked) and
+$472\times$ from sparse storage (blocked $\to$ CSR). Even at 100\,\% density CSR was $3.5\times$
+faster than the baseline, because Gustavson's algorithm reads $B$ in i-k-j order, but $6\times$
+slower than blocking. Part~B speed-ups are therefore reported against the blocked kernel.
 
 \concept{When the sparse representation pays off}
-Against the blocked kernel, CSR saves the work on zeros (its work is $W\approx n^3d^2$ instead of
-$n^3$) but pays about 1.4--12\,ns per product instead of 0.21\,ns. With the measured high-density cost of
-1.5\,ns per product, the break-even density is $d\approx\sqrt{0.21/1.5}\approx37\,\%$, which agrees
-with the measured crossover between 25\,\% and 50\,\% at both sizes. H3 is supported at low
-density but not for the crossover: it was not ``of the order of ten percent'' but between 25\,\% and
-50\,\%, because the cost per product fell at high density. For memory, the crossover is similar
-(25--50\,\%) because the output fills in: at these densities $C$ is dense, and CSR needs 12 bytes per
-entry.
+CSR does $W\approx n^3d^2$ products instead of $n^3$ but pays 1.4--12\,ns per product instead of
+0.21\,ns, because each product needs an index load, an indirect accumulator access and a marker
+test, and is not vectorised. With the high-density cost of 1.5\,ns, the break-even density is
+$d\approx\sqrt{0.21/1.5}\approx37\,\%$, consistent with the measured crossover between 25\,\% and
+50\,\%. \textbf{H3} is therefore supported at low density but not for the crossover, which was
+higher than the ten percent we expected because the cost per product fell at high density. The
+memory crossover is similar because the output fills in. Conversions matter only when the data
+arrive in dense form; being $O(n^2)$ against the $O(n^3)$ dense product, they never removed the
+advantage.
 
 \concept{Density alone does not determine performance}
-Three results show that the percentage of zeros is not enough to predict the outcome (H4,
-supported). First, the output density depends on $n$ as well as on the input density
-(Figure~\ref{fig:fill}), and the output size drives both the memory and the cost of writing $C$.
-Second, the CSR cost per product varied by a factor of 8 between densities, so the time is not
-proportional to the number of nonzeros. Third, at the same density, nnz and number of products,
-banded inputs produced 5--14$\times$ fewer output nonzeros and ran up to 5.6$\times$ faster than
-uniform inputs. What determines the CSR runtime is the number of scalar products, the number of
-distinct output entries and the locality of the accumulator accesses, all of which depend on the
-structure.
-
-\concept{Conversions and scope}
-Conversions matter only when the data are produced in dense form: at low density, converting
-$A$ and $B$ cost up to 420 times more than the multiplication, but the total was still far below
-the dense multiplication time because a conversion is $O(n^2)$ and the dense product $O(n^3)$. In
-applications where the matrices are created in sparse form, the conversion disappears, and the
-largest feasible size is limited by the output fill-in instead of $n^2$ storage: CSR handled
-$n=32768$ at 0.1\,\% density but not at 1\,\%.
+\textbf{H4} is supported by three results: the output density depends on $n$ as well as on the
+input density; the cost per product varied by a factor of 8 between densities; and at the same
+density, nnz and number of products, banded inputs produced 5--14$\times$ fewer output nonzeros
+and ran up to 5.6$\times$ faster, because a product of two bands is again a band and the combined
+rows of $B$ touch neighbouring accumulator entries. The CSR runtime depends on the number of
+products, the number of distinct output entries and the locality of the accumulator accesses, all
+of which depend on the structure. The largest feasible size is limited by output fill-in rather
+than by $n^2$ storage.
 
 \concept{Limitations}
 \begin{itemize}[leftmargin=1.4em]
-  \item One machine, one compiler and one set of flags; no \texttt{-march}, so no AVX2 or FMA. The
-        relative ranking of the dense kernels may change with wider vectors or other cache sizes.
-  \item The baseline varied between processes: on the Part~B inputs of $n=1024$ (same kernel, same
-        work) its median ranged from 4.0 to 5.6\,s, and from 5.48\,s (Assignment~1) to 5.93\,s on
-        the dense inputs. Assignment~1 found this kernel sensitive to memory layout; we did not
-        investigate the cause here. Speed-ups relative to the baseline carry this uncertainty
-        ($\pm15\,\%$), those of the blocked kernel do not (209--253\,ms).
-  \item Synthetic inputs: uniform and banded structures only. Real sparse matrices (power-law
-        rows, blocks) would place the crossover elsewhere; the CSR output columns are unsorted,
-        which some consumers would have to sort at extra cost.
-  \item The memory metric is the peak working set of the whole process, sampled every 20\,ms. It
-        includes the process baseline (about 4\,MB) and, in the main Part~B runs, the conversion
-        buffers; the supplementary run isolates the multiplication.
-  \item No hardware counters were used: the explanations of the L3 and latency limits are
-        consistent with the measurements but not confirmed by cache-miss counts.
+  \item One machine, compiler and flag set; no \texttt{-march}, so no AVX2 or FMA. The ranking
+        may change with wider vectors or other cache sizes.
+  \item The baseline varied between processes: on the Part~B inputs of $n=1024$ (same work) its
+        median ranged from 4.0 to 5.6\,s, so speed-ups relative to it carry about $\pm15\,\%$
+        uncertainty; those of the blocked kernel (209--253\,ms) much less.
+  \item Synthetic uniform and banded inputs only; real sparse matrices would move the crossover.
+        CSR output columns are unsorted, which some consumers would have to sort.
+  \item Memory is the peak working set of the whole process, sampled every 20\,ms and
+        including a 4\,MB baseline. In the main runs it is one value per process covering all
+        repetitions; only the CSR-only supplementary repeats it in five processes.
+  \item No hardware counters: the cache and latency explanations agree with the measurements but
+        are not confirmed by miss counts.
 \end{itemize}
 
 % =====================================================================
@@ -812,52 +740,41 @@ $n=32768$ at 0.1\,\% density but not at 1\,\%.
 On this machine and with these settings:
 \begin{itemize}[leftmargin=1.2em]
   \item All optimised dense kernels gave \textbf{bitwise-identical results} to the baseline, so
-        their differences are purely in how they access memory and use the processor.
-  \item \textbf{Cache blocking} was the fastest dense method: about 10\,GFLOP/s at every size,
-        $27.8\times$ faster than the baseline at $n=2048$ and $31.8\times$ at $n=3072$; the
-        baseline could not finish $n=4096$ in 300\,s, blocking took 13.9\,s.
-  \item \textbf{Loop reordering} alone was as fast as blocking while $B$ fit in the L3 cache and
-        half as fast beyond it; the \textbf{transposed} layout was limited by the latency of its
-        scalar reduction. Vectorisation contributed a factor of 1.25--1.7, the access pattern
-        the rest.
+        they differ only in how they use memory and the processor.
+  \item \textbf{Cache blocking} was the fastest dense method (about 10\,GFLOP/s at every size,
+        $31.8\times$ the baseline at $n=3072$); the baseline could not finish $n=4096$ in 300\,s.
+  \item \textbf{Loop reordering} matched blocking only while $B$ fit in the L3 cache;
+        \textbf{transposed} was limited by its scalar reduction. Vectorisation contributed
+        1.25--1.7$\times$, the access pattern the rest.
   \item \textbf{CSR} beat the fastest dense kernel by more than two orders of magnitude at
-        densities $\le1\,\%$ and by $1.6$--$2\times$ at 25\,\%, and lost at 50\,\% and above;
-        the conversions dominated the CSR time up to 1--2\,\% density but never removed
-        its advantage.
-  \item The \textbf{sparse advantage was limited by fill-in and structure}, not by the input
-        density alone: products of sparse matrices became dense quickly, and inputs with the same
-        density but a banded structure ran up to $5.6\times$ faster.
-  \item CSR extended the largest feasible size from $n=8192$ (dense, time and memory budgets) to
-        $n=32768$ at 0.1\,\% density; at 1\,\% the output fill-in stopped it at $n=16384$.
+        densities $\le1\,\%$ and by up to $2\times$ at 25\,\%, and lost from 50\,\%; conversions
+        dominated up to 1--2\,\% density but never removed its advantage.
+  \item The \textbf{sparse advantage depended on fill-in and structure}, not on input density
+        alone, and CSR extended the largest feasible size from $n=8192$ to $n=32768$ at 0.1\,\%.
 \end{itemize}
 \end{titledbox}
 
 \concept{Open questions}
-Whether register blocking and AVX2/FMA (\texttt{-march=native}) change the ranking; a
-hardware-counter confirmation of the cache explanations; and how the crossover moves for real
-sparse matrices with irregular structure.
+Whether register blocking and AVX2/FMA change the ranking, a hardware-counter confirmation of the
+cache explanations, and how the crossover moves for real sparse matrices.
 
 % =====================================================================
 \section*{Reproducibility materials}
-Repository: \url{\RepoURL}. It contains:
-\begin{itemize}[leftmargin=1.4em]
-  \item source code: \texttt{c/common.h}, \texttt{c/dense.c} (baseline kernel body copied unchanged from
-        Assignment~1, \url{\AOneURL}), \texttt{c/sparse.c};
-  \item configuration: \texttt{config/benchmark\_config.json} (sizes, densities, seeds,
-        repetitions, budgets, flags, tile size);
-  \item input generation, \texttt{scripts/generate\_inputs.py} (SHA-256 of every input in
-        \texttt{data/manifest.json}), and the build, tuning, benchmark, validation,
-        supplementary and analysis scripts;
-  \item all raw measurements: \texttt{results/raw/} (with the excluded rows and the reason for
-        excluding them), \texttt{results/tuning/} and \texttt{results/supplementary/}, plus the
-        summaries and figures;
-  \item a README with exact build and run commands and dependency versions.
-\end{itemize}
+Repository: \url{\RepoURL}. It contains the source code (\texttt{c/}; the baseline kernel body is
+copied unchanged from Assignment~1, \url{\AOneURL}), the configuration
+(\texttt{config/benchmark\_config.json}), the input generator with SHA-256 of every input
+(\texttt{scripts/generate\_inputs.py}, \texttt{data/manifest.json}), the build, tuning, benchmark,
+validation, supplementary and analysis scripts, all raw measurements (\texttt{results/raw/},
+including the excluded rows and the reason, \texttt{results/tuning/},
+\texttt{results/supplementary/}), and a README with exact commands and dependency versions.
 
 \section*{Use of generative AI}
-Claude (Anthropic) was used to help write the implementations, the benchmarking and analysis scripts,
-and a draft of this report. All numbers in this report come from running the code on the machine
-described above; the raw data are included. The author reviewed the code, the results and the text.
+Claude Opus (Anthropic), used through Claude Code, assisted with: writing and debugging the C
+kernels and the Python scripts (input generation, benchmark driver, validation, analysis and
+figures); running the measurement campaign on the author's machine; and drafting and revising the
+text of this report. The author defined the study, reviewed the code and checked every number in
+the report against the raw data in the repository. Generated content was not used as evidence:
+all results come from executing the code, and all references were checked to exist.
 
 % =====================================================================
 \begin{thebibliography}{99}\small\sloppy

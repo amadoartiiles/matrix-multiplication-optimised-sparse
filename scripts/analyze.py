@@ -135,9 +135,12 @@ def main():
                                 and r["method"] == m and r["input"] == inp and int(r["n"]) == n
                                 and r["phase"] == phase),
                   "peak_working_set_mb": int(run["peak_working_set_bytes"]) / 1e6,
-                  "nnz_c": int(run["nnz_c"]) if run["nnz_c"] else ""})
+                  "nnz_c": int(run["nnz_c"]) if run["nnz_c"] else "",
+                  "representation": "csr" if m == "csr" else "dense", "dtype": "float64",
+                  "threads": 1})
         summary[key] = s
-    fields = ["experiment", "method", "input", "n", "density_pct", "structure", "phase", "reps",
+    fields = ["experiment", "method", "representation", "dtype", "threads", "input", "n",
+              "density_pct", "structure", "phase", "reps",
               "inner", "median_s", "q1_s", "q3_s", "rel_iqr_pct", "peak_working_set_mb", "nnz_c"]
     with open(os.path.join(sum_dir, "summary.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
@@ -322,7 +325,8 @@ def main():
     if os.path.exists(mem_path):
         for r in csv.DictReader(open(mem_path)):
             if r["status"] == "ok":
-                csr_only[(int(r["n"]), float(r["density_pct"]))] = int(r["peak_working_set_bytes"]) / 1e6
+                csr_only.setdefault((int(r["n"]), float(r["density_pct"])), []).append(
+                    int(r["peak_working_set_bytes"]) / 1e6)
     sparse_rows = []
     for exp in ("sparse", "structure", "sparse_large"):
         inputs = sorted({(int(r["n"]), float(r["density_pct"]), r["structure"], r["input"])
@@ -330,6 +334,7 @@ def main():
         for n, d, structure, inp in inputs:
             rc = run_by.get((exp, "csr", inp, n))
             row = {"experiment": exp, "n": n, "density_pct": d, "structure": structure,
+                   "dtype": "float64", "threads": 1,
                    "input": inp, "csr_status": rc["status"] if rc else "",
                    "nnz_a": "", "nnz_b": "", "nnz_c": "", "out_density_pct": "",
                    "products": products(args.data, structure, n, d)}
@@ -341,7 +346,11 @@ def main():
                             "csr_bytes_c": float(rc["csr_bytes_c"]),
                             "csr_peak_ws_mb": int(rc["peak_working_set_bytes"]) / 1e6})
                 if exp == "sparse":
-                    row["csr_only_peak_ws_mb"] = csr_only.get((n, d), "")
+                    mem = csr_only.get((n, d))
+                    row["csr_only_peak_ws_mb"] = float(np.median(mem)) if mem else ""
+                    row["csr_only_peak_ws_iqr_mb"] = (float(np.subtract(*np.percentile(mem, [75, 25])))
+                                                      if mem else "")
+                    row["csr_only_processes"] = len(mem) if mem else 0
             for phase in ("measure", "to_csr", "to_dense"):
                 s = summary.get((exp, "csr", inp, n, phase))
                 row[f"csr_{phase}_s"] = s["median_s"] if s else ""
@@ -524,7 +533,7 @@ def main():
         plt.close(fig)
 
         # Figure: time per product
-        fig, ax = plt.subplots(figsize=(5.6, 3.4))
+        fig, ax = plt.subplots(figsize=(7.4, 3.4))
         for n, ls in zip(sizes_sp, ("-", "--")):
             rows = sp("sparse", n)
             ax.plot([r["products"] for r in rows],
@@ -543,7 +552,7 @@ def main():
         ax.set_yscale("log")
         style(ax, "scalar products sum_k nnz(A[:,k]) nnz(B[k,:])", "time per product (ns)",
               "Cost per scalar product")
-        ax.legend(frameon=False, fontsize=7.8)
+        ax.legend(frameon=False, fontsize=7.8, loc="upper left", bbox_to_anchor=(1.01, 1.0))
         fig.savefig(os.path.join(fig_dir, "fig_sparse_per_product.png"))
         plt.close(fig)
 

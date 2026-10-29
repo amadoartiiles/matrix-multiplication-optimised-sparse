@@ -116,6 +116,17 @@ A quick pilot: `python scripts/run_benchmarks.py --data $DATA --outputs $OUT --o
 `experiment,method,input,n,density_pct,structure,block,phase,rep,inner,batch_time_s,time_per_mult_s,checksum,nnz_c`
 (`phase` is `warmup`, `measure`, `to_csr` or `to_dense`).
 
+Labels that are constant in every configuration are not repeated in the raw rows: the numeric
+type is IEEE 754 binary64 (`float64`), every run uses one thread, and the representation follows
+from the method (`csr` for method `csr`, row-major `dense` for `ijk`, `ikj`, `transposed`,
+`blocked`). `results/summary/summary.csv` carries them as explicit columns (`representation`,
+`dtype`, `threads`); `sparse.csv` carries `dtype` and `threads`, and its time and memory columns
+are prefixed with the method (`csr_`, `blocked_`, `ijk_`). Sparse configurations also carry
+`density_pct` and `structure`.
+
+`results/supplementary/sparse_memory.csv`: peak working set of the CSR multiplication alone,
+one row per process (5 processes per configuration, column `process_rep`).
+
 `results/raw/excluded.csv`: rows removed from the raw files, with the reason (a Modern Standby
 interruption during the first ijk n=3072 run; both affected configurations were rerun).
 An interrupted campaign can be continued with `run_benchmarks.py --resume`.
@@ -126,6 +137,7 @@ CSR storage of each.
 
 ## Use of generative AI
 
-Claude (Anthropic) was used to help write the implementations, scripts and a draft of the
-report. All measurements in `results/` come from actually running the code on the machine
-described in `results/environment.json`.
+Claude Opus (Anthropic), through Claude Code, assisted with writing and debugging the C kernels
+and Python scripts, running the measurement campaign and drafting the report. All measurements
+in `results/` come from actually running the code on the machine described in
+`results/environment.json`, and every number in the report was checked against them.
